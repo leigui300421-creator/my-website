@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<title>两条导线：随间距 d 变化的磁场分量、矢量磁场与总磁场</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<script>
+window.MathJax = {
+  tex: {
+    inlineMath: [['\\(', '\\)']],
+    displayMath: [['\\[', '\\]']]
+  },
+  svg: { fontCache: 'global' }
+};
+</script>
+<script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+<style>
+  body {
+    font-family: "Microsoft YaHei", Arial, sans-serif;
+    margin: 24px;
+    line-height: 1.7;
+    color: #111;
+    background: #fff;
+  }
+  h1, h2, h3 { margin: 0.25em 0; }
+  .box {
+    border: 1px solid #ccc;
+    border-radius: 10px;
+    padding: 16px 18px;
+    margin: 16px 0;
+    background: #fff;
+  }
+  .controls {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-top: 10px;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+  }
+  .chart-wrap {
+    border: 1px solid #ddd;
+    border-radius: 10px;
+    padding: 10px;
+    background: #fff;
+  }
+  canvas {
+    width: 100%;
+    max-width: 520px;
+    height: 320px;
+    border: 1px solid #eee;
+    background: #fff;
+    display: block;
+    margin: 0 auto;
+  }
+  .small {
+    color: #444;
+    font-size: 14px;
+  }
+  .legend {
+    display: flex;
+    gap: 14px;
+    flex-wrap: wrap;
+    font-size: 14px;
+    margin-top: 8px;
+  }
+  .legend span::before {
+    content: "";
+    display: inline-block;
+    width: 16px;
+    height: 3px;
+    margin-right: 6px;
+    vertical-align: middle;
+    background: currentColor;
+  }
+  .note {
+    background: #f7f7f7;
+    border-radius: 8px;
+    padding: 10px 12px;
+  }
+  .summary {
+    background: #f9fbff;
+    border-left: 4px solid #6699cc;
+    padding: 10px 12px;
+    margin-top: 8px;
+  }
+  ul { margin-top: 6px; }
+  li { margin: 5px 0; }
+  .eqblock {
+    overflow-x: auto;
+  }
+</style>
+</head>
+<body>
+<h1>两条沿 \(Y\) 方向导线：磁场分量、矢量磁场与总磁场的动态变化</h1>
+
+<div class="box">
+  <h2>1. 模型与观察方式</h2>
+  <p>两根无限长直导线都沿 \(Y\) 方向放置，中心位置分别在</p>
+  <div class="eqblock">
+    \[
+    x=-\frac{d}{2},\qquad x=+\frac{d}{2},\qquad z=0.
+    \]
+  </div>
+  <p>这里 \(d\) 是两根导线的中心间距。我们固定在上方平面 \(z=h>0\) 观察，并沿 \(x\) 方向扫描，因此动态图里画出的都是同一个截面中的一维曲线：</p>
+  <div class="eqblock">
+    \[
+    B_x(x,h),\qquad B_z(x,h),\qquad |\mathbf B(x,h)|.
+    \]
+  </div>
+  <div class="note">
+    <b>基础分析：</b><br>
+    对沿 \(Y\) 方向的理想长直导线，磁场始终落在 \(X\!-\!Z\) 平面中，因此
+    \[
+    B_y=0.
+    \]
+    所以磁场矢量只需看两个分量 \(B_x\) 与 \(B_z\)；总磁场大小为
+    \[
+    |\mathbf B|=\sqrt{B_x^2+B_z^2}.
+    \]
+  </div>
+</div>
+
+<div class="box">
+  <h2>2. 单根导线的磁场：基础形式</h2>
+  <p>对于一根沿 \(+Y\) 方向、位于 \(x=x_i\) 的长直导线，在观察平面 \(z=h\) 上的磁场可写为：</p>
+  <div class="eqblock">
+    \[
+    \mathbf B_i(x,h)=\frac{\mu_0 I_i}{2\pi\left[(x-x_i)^2+h^2\right]}
+    \Bigl(h\,\mathbf e_x-(x-x_i)\,\mathbf e_z\Bigr).
+    \]
+  </div>
+  <p>因此它的两个磁场分量是：</p>
+  <div class="eqblock">
+    \[
+    B_{x,i}(x,h)=\frac{\mu_0 I_i}{2\pi}\,
+    \frac{h}{(x-x_i)^2+h^2},
+    \]
+    \[
+    B_{z,i}(x,h)=-\frac{\mu_0 I_i}{2\pi}\,
+    \frac{x-x_i}{(x-x_i)^2+h^2}.
+    \]
+  </div>
+  <div class="summary">
+    <b>物理含义：</b>
+    <ul>
+      <li>\(B_x\)：总是与观察高度 \(h\) 成正比，体现“上方平面里的横向分量”；</li>
+      <li>\(B_z\)：由 \(x-x_i\) 决定正负，体现“左正右负的过零结构”；</li>
+      <li>\(B_y=0\)：因为磁场环绕导线，不沿导线本身方向。</li>
+    </ul>
+  </div>
+</div>
+
+<div class="box">
+  <h2>3. 两根导线的矢量磁场：先做矢量叠加，再看分量</h2>
+  <p>总磁场矢量就是两根导线磁场的矢量和：</p>
+  <div class="eqblock">
+    \[
+    \mathbf B_{\text{tot}}=\mathbf B_1+\mathbf B_2
+    =B_x\,\mathbf e_x+B_z\,\mathbf e_z.
+    \]
+  </div>
+  <p>先分别把两个导线产生的 \(B_x\) 相加，再把两个导线产生的 \(B_z\) 相加：</p>
+  <div class="eqblock">
+    \[
+    B_x=B_{x,1}+B_{x,2},\qquad B_z=B_{z,1}+B_{z,2}.
+    \]
+  </div>
+  <p>最后总磁场大小是：</p>
+  <div class="eqblock">
+    \[
+    |\mathbf B|=\sqrt{B_x^2+B_z^2}.
+    \]
+  </div>
+</div>
+
+<div class="box">
+  <h2>4. 同向电流与反向电流：</h2>
+  <p>下面为了让图形更直观，动态图里都省略公共系数 \(\mu_0 I/(2\pi)\)，并把高度归一化为 \(h=1\)。</p>
+
+  <h3>4.1 同向电流（左：\(+I\)，右：\(+I\)）</h3>
+  <div class="eqblock">
+    \[
+    B_x^{\text{same}}(x)=
+    \frac{1}{(x+d/2)^2+1}+\frac{1}{(x-d/2)^2+1},
+    \]
+    \[
+    B_z^{\text{same}}(x)=
+    -\frac{x+d/2}{(x+d/2)^2+1}
+    -\frac{x-d/2}{(x-d/2)^2+1},
+    \]
+    \[
+    |\mathbf B|^{\text{same}}=
+    \sqrt{\left(B_x^{\text{same}}\right)^2+\left(B_z^{\text{same}}\right)^2}.
+    \]
+  </div>
+  <div class="summary">
+    <b>基础分析：</b>
+    <ul>
+      <li>中心 \(x=0\) 处，两个 \(B_z\) 正好对消，所以 \(B_z^{\text{same}}(0)=0\)；</li>
+      <li>中心 \(x=0\) 处，两个 \(B_x\) 同向叠加，所以 \(B_x^{\text{same}}(0)\) 增强；</li>
+      <li>当 \(d\to 0\) 时，两根导线越来越像“一根电流为 \(2I\) 的单导线”。</li>
+    </ul>
+  </div>
+
+  <h3>4.2 反向电流（左：\(+I\)，右：\(-I\)）</h3>
+  <div class="eqblock">
+    \[
+    B_x^{\text{opp}}(x)=
+    \frac{1}{(x+d/2)^2+1}-\frac{1}{(x-d/2)^2+1},
+    \]
+    \[
+    B_z^{\text{opp}}(x)=
+    -\frac{x+d/2}{(x+d/2)^2+1}
+    +\frac{x-d/2}{(x-d/2)^2+1},
+    \]
+    \[
+    |\mathbf B|^{\text{opp}}=
+    \sqrt{\left(B_x^{\text{opp}}\right)^2+\left(B_z^{\text{opp}}\right)^2}.
+    \]
+  </div>
+  <div class="summary">
+    <b>基础分析：</b>
+    <ul>
+      <li>中心 \(x=0\) 处，两个 \(B_x\) 正好抵消，所以 \(B_x^{\text{opp}}(0)=0\)；</li>
+      <li>中心 \(x=0\) 处，两个 \(B_z\) 方向相同，因此 \(B_z^{\text{opp}}(0)\) 增强；</li>
+      <li>当 \(d\) 继续缩小到很小时，正负电流越来越接近，远场会越来越抵消。</li>
+    </ul>
+  </div>
+</div>
+
+<div class="box">
+  <h2>5. 中心点 \(x=0\) 的结果适合快速判断</h2>
+  <h3>5.1 同向电流</h3>
+  <div class="eqblock">
+    \[
+    B_z^{\text{same}}(0)=0,
+    \qquad
+    B_x^{\text{same}}(0)=\frac{2}{1+(d/2)^2}.
+    \]
+  </div>
+  <p>因此，中心总磁场就是</p>
+  <div class="eqblock">
+    \[
+    |\mathbf B|^{\text{same}}(0)=\frac{2}{1+(d/2)^2}.
+    \]
+  </div>
+  <p>它会随着 \(d\) 减小而单调增大。</p>
+
+  <h3>5.2 反向电流</h3>
+  <div class="eqblock">
+    \[
+    B_x^{\text{opp}}(0)=0,
+    \qquad
+    B_z^{\text{opp}}(0)=-\frac{d}{1+(d/2)^2}.
+    \]
+  </div>
+  <p>因此，中心总磁场就是</p>
+  <div class="eqblock">
+    \[
+    |\mathbf B|^{\text{opp}}(0)=\frac{d}{1+(d/2)^2}.
+    \]
+  </div>
+  <p>它不是单调变化，而是：当 \(d\) 从很大减小时，先变大；在 \(d\approx 2\)（即 \(d\approx 2h\)）附近最强；再继续减小则重新减弱。</p>
+</div>
+
+<div class="box">
+  <h2>6. 动态曲线</h2>
+  <div class="controls">
+    <label for="dSlider"><b>间距 \(d/h\)：</b></label>
+    <input id="dSlider" type="range" min="0" max="6.0" step="0.1" value="2.0" />
+    <span id="dValue"><b>2.0</b></span>
+    <button id="playBtn">开始动画</button>
+  </div>
+  <p class="small">红色虚线表示两根导线的位置 \(x=\pm d/2\)。</p>
+
+  <div class="grid">
+    <div class="chart-wrap">
+      <h3>同向电流：\(B_x(x,h)\)</h3>
+      <canvas id="c1" width="520" height="320"></canvas>
+      <div class="small">两个峰随 \(d\) 减小逐渐融合。</div>
+    </div>
+
+    <div class="chart-wrap">
+      <h3>同向电流：\(B_z(x,h)\)</h3>
+      <canvas id="c2" width="520" height="320"></canvas>
+      <div class="small">关于 \(x=0\) 反对称，中心始终为 0。</div>
+    </div>
+
+    <div class="chart-wrap">
+      <h3>反向电流：\(B_x(x,h)\)</h3>
+      <canvas id="c3" width="520" height="320"></canvas>
+      <div class="small">中心抵消，整体更容易减弱。</div>
+    </div>
+
+    <div class="chart-wrap">
+      <h3>反向电流：\(B_z(x,h)\)</h3>
+      <canvas id="c4" width="520" height="320"></canvas>
+      <div class="small">两线之间磁场增强，远场更易抵消。</div>
+    </div>
+
+    <div class="chart-wrap">
+      <h3>同向电流：总磁场 \(|\mathbf B|(x,h)\)</h3>
+      <canvas id="c5" width="520" height="320"></canvas>
+      <div class="small">越靠近“重合”，越像一根更强的单导线。</div>
+    </div>
+
+    <div class="chart-wrap">
+      <h3>反向电流：总磁场 \(|\mathbf B|(x,h)\)</h3>
+      <canvas id="c6" width="520" height="320"></canvas>
+      <div class="small">中心强度先增后减，是反向双导线最典型的特征。</div>
+    </div>
+  </div>
+
+  <div class="legend">
+    <span style="color:#1f77b4;">蓝线：当前 \(d\) 下的曲线</span>
+    <span style="color:#d62728;">红虚线：导线位置 \(x=\pm d/2\)</span>
+    <span style="color:#888;">灰线：零轴</span>
+  </div>
+</div>
+
+<div class="box">
+  <h2>7. 总结</h2>
+  <div class="note">
+    <ul>
+      <li><b>先看矢量：</b>\(\mathbf B = B_x\mathbf e_x + B_z\mathbf e_z\)，其中 \(B_y=0\)。</li>
+      <li><b>再看分量：</b>先把两根导线各自产生的 \(B_x\)、\(B_z\) 分别叠加。</li>
+      <li><b>最后看总磁场大小：</b>\(|\mathbf B|=\sqrt{B_x^2+B_z^2}\)。</li>
+      <li><b>同向电流：</b>中心 \(B_x\) 强、\(B_z=0\)，随 \(d\) 减小越来越像单根 \(2I\) 导线。</li>
+      <li><b>反向电流：</b>中心 \(B_x=0\)、\(B_z\) 强，随 \(d\) 减小表现为“先增强、后减弱”。</li>
+    </ul>
+  </div>
+</div>
+
+<script>
+const slider = document.getElementById("dSlider");
+const dValue = document.getElementById("dValue");
+const playBtn = document.getElementById("playBtn");
+
+const canvases = [
+  document.getElementById("c1"),
+  document.getElementById("c2"),
+  document.getElementById("c3"),
+  document.getElementById("c4"),
+  document.getElementById("c5"),
+  document.getElementById("c6")
+];
+
+let playing = false;
+let timer = null;
+
+function xGrid(n=700, xmin=-5, xmax=5) {
+  const arr = [];
+  for (let i=0; i<n; i++) arr.push(xmin + (xmax-xmin)*i/(n-1));
+  return arr;
+}
+const xs = xGrid();
+
+function curves(d) {
+  const half = d/2;
+  const bxs = [], bzs = [], bxo = [], bzo = [], bts = [], bto = [];
+  for (const x of xs) {
+    const Lx = x + half;
+    const Rx = x - half;
+    const DL = Lx*Lx + 1;
+    const DR = Rx*Rx + 1;
+
+    const sameBx = 1/DL + 1/DR;
+    const sameBz = -Lx/DL - Rx/DR;
+    const oppBx = 1/DL - 1/DR;
+    const oppBz = -Lx/DL + Rx/DR;
+
+    bxs.push(sameBx);
+    bzs.push(sameBz);
+    bxo.push(oppBx);
+    bzo.push(oppBz);
+    bts.push(Math.sqrt(sameBx*sameBx + sameBz*sameBz));
+    bto.push(Math.sqrt(oppBx*oppBx + oppBz*oppBz));
+  }
+  return {bxs, bzs, bxo, bzo, bts, bto};
+}
+
+function findMaxAbs(arr) {
+  let m = 0;
+  for (const v of arr) m = Math.max(m, Math.abs(v));
+  return m;
+}
+function findMax(arr) {
+  let m = -Infinity;
+  for (const v of arr) m = Math.max(m, v);
+  return m;
+}
+
+function drawChart(canvas, xArr, yArr, d, ymin, ymax, yLabel="value") {
+  const ctx = canvas.getContext("2d");
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+
+  const left = 52, right = 18, top = 18, bottom = 36;
+  const w = W-left-right, h = H-top-bottom;
+  const xmin = -5, xmax = 5;
+
+  function Xp(x) { return left + (x-xmin)/(xmax-xmin)*w; }
+  function Yp(y) { return top + (ymax-y)/(ymax-ymin)*h; }
+
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0,0,W,H);
+
+  ctx.strokeStyle = "#f0f0f0";
+  ctx.lineWidth = 1;
+  for (let i=0; i<=10; i++) {
+    const xx = xmin + i*(xmax-xmin)/10;
+    ctx.beginPath(); ctx.moveTo(Xp(xx), top); ctx.lineTo(Xp(xx), top+h); ctx.stroke();
+  }
+  for (let i=0; i<=8; i++) {
+    const yy = ymin + i*(ymax-ymin)/8;
+    ctx.beginPath(); ctx.moveTo(left, Yp(yy)); ctx.lineTo(left+w, Yp(yy)); ctx.stroke();
+  }
+
+  ctx.strokeStyle = "#888";
+  ctx.lineWidth = 1.2;
+  if (ymin < 0 && ymax > 0) {
+    ctx.beginPath(); ctx.moveTo(left, Yp(0)); ctx.lineTo(left+w, Yp(0)); ctx.stroke();
+  }
+  ctx.beginPath(); ctx.moveTo(Xp(0), top); ctx.lineTo(Xp(0), top+h); ctx.stroke();
+
+  ctx.strokeStyle = "#d62728";
+  ctx.setLineDash([6,4]);
+  for (const xw of [-d/2, d/2]) {
+    ctx.beginPath(); ctx.moveTo(Xp(xw), top); ctx.lineTo(Xp(xw), top+h); ctx.stroke();
+  }
+  ctx.setLineDash([]);
+
+  ctx.strokeStyle = "#1f77b4";
+  ctx.lineWidth = 2.3;
+  ctx.beginPath();
+  for (let i=0; i<xArr.length; i++) {
+    const xp = Xp(xArr[i]), yp = Yp(yArr[i]);
+    if (i===0) ctx.moveTo(xp, yp); else ctx.lineTo(xp, yp);
+  }
+  ctx.stroke();
+
+  ctx.strokeStyle = "#ccc";
+  ctx.lineWidth = 1;
+  ctx.strokeRect(left, top, w, h);
+
+  ctx.fillStyle = "#111";
+  ctx.font = "14px Microsoft YaHei";
+  ctx.fillText("x / h", left + w/2 - 14, H - 8);
+  ctx.save();
+  ctx.translate(15, top + h/2 + 20);
+  ctx.rotate(-Math.PI/2);
+  ctx.fillText(yLabel, 0, 0);
+  ctx.restore();
+
+  ctx.font = "12px Microsoft YaHei";
+  ctx.fillStyle = "#444";
+  for (let xv=-4; xv<=4; xv+=2) {
+    ctx.fillText(String(xv), Xp(xv)-7, (ymin < 0 && ymax > 0 ? Yp(0)+16 : top+h+16));
+  }
+  for (let k=0; k<=4; k++) {
+    const yy = ymin + k*(ymax-ymin)/4;
+    ctx.fillText(yy.toFixed(2), 6, Yp(yy)+4);
+  }
+}
+
+function redraw() {
+  const d = parseFloat(slider.value);
+  dValue.innerHTML = "<b>" + d.toFixed(1) + "</b>";
+  const {bxs, bzs, bxo, bzo, bts, bto} = curves(d);
+
+  const y1 = Math.max(2.2, findMaxAbs(bxs)*1.15);
+  const y2 = Math.max(1.4, findMaxAbs(bzs)*1.15);
+  const y3 = Math.max(1.2, findMaxAbs(bxo)*1.2);
+  const y4 = Math.max(1.4, findMaxAbs(bzo)*1.15);
+  const y5 = Math.max(2.2, findMax(bts)*1.12);
+  const y6 = Math.max(1.8, findMax(bto)*1.12);
+
+  drawChart(canvases[0], xs, bxs, d, -0.05*y1, y1, "Bx");
+  drawChart(canvases[1], xs, bzs, d, -y2, y2, "Bz");
+  drawChart(canvases[2], xs, bxo, d, -y3, y3, "Bx");
+  drawChart(canvases[3], xs, bzo, d, -y4, y4, "Bz");
+  drawChart(canvases[4], xs, bts, d, 0, y5, "|B|");
+  drawChart(canvases[5], xs, bto, d, 0, y6, "|B|");
+}
+
+slider.addEventListener("input", redraw);
+
+playBtn.addEventListener("click", () => {
+  playing = !playing;
+  playBtn.textContent = playing ? "停止动画" : "开始动画";
+  if (playing) {
+    let dir = 1;
+    timer = setInterval(() => {
+      let v = parseFloat(slider.value);
+      if (v >= 6.0) dir = -1;
+      if (v <= 0.2) dir = 1;
+      v += 0.1 * dir;
+      slider.value = v.toFixed(1);
+      redraw();
+    }, 120);
+  } else {
+    clearInterval(timer);
+  }
+});
+
+redraw();
+</script>
+</body>
+</html>

@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="我的网页目录，汇总报告和其他页面。">
+  <title>我的网页目录</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, "Segoe UI",
+        "Microsoft YaHei", sans-serif;
+      line-height: 1.7;
+      color: #1e293b;
+      background: #f4f7fb;
+    }
+
+    main {
+      width: min(900px, 100%);
+      margin: 0 auto;
+      padding: 64px 24px;
+    }
+
+    h1 {
+      margin: 0 0 12px;
+      font-size: clamp(28px, 5vw, 40px);
+    }
+
+    .intro {
+      margin: 0 0 32px;
+      color: #475569;
+    }
+
+    .pages {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 20px;
+      padding: 0;
+      margin: 0;
+      list-style: none;
+    }
+
+    .card {
+      display: block;
+      height: 100%;
+      padding: 24px;
+      color: inherit;
+      text-decoration: none;
+      background: #fff;
+      border: 1px solid #dbe3ee;
+      border-radius: 16px;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .card:hover {
+      border-color: #2563eb;
+      box-shadow: 0 8px 24px rgb(15 23 42 / 8%);
+    }
+
+    .card:focus-visible {
+      outline: 3px solid #2563eb;
+      outline-offset: 4px;
+    }
+
+    .card h2 {
+      margin: 0 0 8px;
+      font-size: 21px;
+    }
+
+    .card p {
+      margin: 0 0 20px;
+      color: #475569;
+    }
+
+    .card span {
+      color: #1d4ed8;
+      font-weight: 600;
+    }
+
+    footer {
+      margin-top: 40px;
+      color: #64748b;
+      font-size: 14px;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .card {
+        transition: none;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <main>
+    <header>
+      <h1>我的网页目录</h1>
+      <p class="intro">欢迎访问。请选择下面的页面查看详细内容。</p>
+    </header>
+
+    <nav aria-label="网页目录">
+      <ul class="pages">
+        <!-- 将 href 修改为你的实际文件名，路径和大小写必须一致 -->
+        <li>
+          <a class="card" href="./Two_wire_magnetic_field.html">
+            <h2>报告</h2>
+            <p>查看报告、分析与相关资料。</p>
+            <span>查看报告 →</span>
+          </a>
+        </li>
+
+      </ul>
+    </nav>
+
+    <footer>
+      本网站通过 GitHub Pages 发布。
+    </footer>
+  </main>
+</body>
+</html>
