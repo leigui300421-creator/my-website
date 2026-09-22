@@ -1,0 +1,1475 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="两根无限长矩形截面直导线在反向直流下的二维磁场仿真。">
+  <title>双导线矩形截面磁场仿真</title>
+  <script>
+    window.MathJax = {
+      tex: { inlineMath: [['\\(', '\\)']], displayMath: [['\\[', '\\]']] },
+      svg: { fontCache: 'global' }
+    };
+  </script>
+  <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: #f4f7fb;
+      --surface: #ffffff;
+      --surface-2: #eef3f9;
+      --text: #172033;
+      --muted: #5d6b80;
+      --border: #cdd8e6;
+      --primary: #155eef;
+      --primary-hover: #0b4fd2;
+      --focus: #77a6ff;
+      --danger: #b42318;
+      --warning: #9a6700;
+      --success: #16794a;
+      --wire1: #b87333;
+      --wire2: #d4a72c;
+      --grid: #dfe6ef;
+      --axis: #4b5b70;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #101722;
+        --surface: #172131;
+        --surface-2: #202c3d;
+        --text: #edf3fa;
+        --muted: #a9b7c9;
+        --border: #3a4a60;
+        --primary: #78a8ff;
+        --primary-hover: #9bbfff;
+        --focus: #78a8ff;
+        --danger: #ff8c82;
+        --warning: #f4c152;
+        --success: #70d6a1;
+        --wire1: #d28b50;
+        --wire2: #e2bc55;
+        --grid: #2d3b4f;
+        --axis: #a9b7c9;
+      }
+    }
+
+    * { box-sizing: border-box; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+      line-height: 1.7;
+      color: var(--text);
+      background: var(--bg);
+    }
+
+    button, input, select { font: inherit; }
+
+    button, select, input[type="checkbox"] { cursor: pointer; }
+
+    a { color: var(--primary); }
+
+    .hidden { display: none !important; }
+
+    .gate {
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+    }
+
+    .gate-card {
+      width: min(440px, 100%);
+      padding: 28px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      box-shadow: 0 18px 54px rgb(15 23 42 / 12%);
+    }
+
+    .gate-card h1 { margin: 0 0 8px; font-size: 28px; }
+    .gate-card p { color: var(--muted); }
+
+    .page {
+      width: min(1180px, 100%);
+      margin: 0 auto;
+      padding: 36px 24px 72px;
+    }
+
+    header.page-header {
+      padding: 18px 0 28px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    h1, h2, h3 { line-height: 1.25; }
+    h1 { margin: 0 0 10px; font-size: clamp(28px, 5vw, 44px); }
+    h2 { margin: 42px 0 16px; font-size: clamp(23px, 4vw, 31px); }
+    h3 { margin: 26px 0 10px; font-size: 20px; }
+    p { margin: 9px 0; }
+
+    .lede { max-width: 820px; color: var(--muted); }
+
+    .toc {
+      display: flex;
+      gap: 10px 18px;
+      flex-wrap: wrap;
+      padding: 14px 0 0;
+    }
+
+    .toc a { text-decoration: none; }
+
+    .theory, .simulator { scroll-margin-top: 18px; }
+
+    .theory-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 18px;
+    }
+
+    .panel {
+      min-width: 0;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 20px;
+    }
+
+    .panel > :first-child { margin-top: 0; }
+    .panel > :last-child { margin-bottom: 0; }
+
+    .note {
+      padding: 12px 14px;
+      background: var(--surface-2);
+      border-left: 4px solid var(--primary);
+      border-radius: 7px;
+    }
+
+    .formula-scroll { overflow-x: auto; }
+
+    .assumptions li { margin: 5px 0; }
+
+    .mode-tabs {
+      display: inline-flex;
+      gap: 4px;
+      margin: 0 0 18px;
+      padding: 4px;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 11px;
+    }
+
+    .mode-tab {
+      min-height: 40px;
+      border: 0;
+      background: transparent;
+    }
+
+    .mode-tab[aria-selected="true"] {
+      color: #fff;
+      background: var(--primary);
+    }
+
+    .sim-layout {
+      display: grid;
+      grid-template-columns: minmax(280px, 350px) minmax(0, 1fr);
+      gap: 22px;
+      align-items: start;
+    }
+
+    .controls-panel {
+      position: sticky;
+      top: 12px;
+    }
+
+    .parameter-group {
+      margin: 0 0 16px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+    }
+
+    .parameter-group summary {
+      padding: 11px 14px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .parameter-group[open] summary { border-bottom: 1px solid var(--border); }
+
+    .parameter-body { padding: 14px; }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .field { min-width: 0; }
+
+    .field label {
+      display: block;
+      margin-bottom: 4px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .input-unit { display: flex; align-items: stretch; }
+
+    input[type="number"], input[type="password"], select {
+      width: 100%;
+      min-height: 44px;
+      padding: 9px 10px;
+      color: var(--text);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+
+    .input-unit input { border-radius: 8px 0 0 8px; }
+
+    .unit {
+      display: inline-flex;
+      align-items: center;
+      padding: 0 9px;
+      color: var(--muted);
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-left: 0;
+      border-radius: 0 8px 8px 0;
+      white-space: nowrap;
+    }
+
+    input:focus, select:focus, button:focus-visible {
+      outline: 3px solid color-mix(in srgb, var(--focus) 45%, transparent);
+      outline-offset: 1px;
+    }
+
+    .check-row {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      min-height: 40px;
+      margin: 6px 0;
+    }
+
+    .check-row input { width: 20px; height: 20px; }
+
+    .actions { display: flex; gap: 10px; flex-wrap: wrap; }
+
+    button {
+      min-height: 44px;
+      padding: 9px 15px;
+      color: var(--text);
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 9px;
+    }
+
+    button.primary {
+      flex: 1 1 170px;
+      color: #fff;
+      background: var(--primary);
+      border-color: var(--primary);
+      font-weight: 700;
+    }
+
+    button.primary:hover { background: var(--primary-hover); }
+
+    .error {
+      margin-top: 12px;
+      color: var(--danger);
+      font-weight: 650;
+    }
+
+    .results { min-width: 0; }
+
+    .compare-controls {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    .compare-height-options {
+      grid-column: 1 / -1;
+      display: flex;
+      gap: 18px;
+      flex-wrap: wrap;
+    }
+
+    .status-line {
+      margin: 0 0 14px;
+      color: var(--muted);
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    .stat {
+      padding: 14px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 11px;
+    }
+
+    .stat-label { color: var(--muted); font-size: 13px; }
+    .stat-value { margin-top: 3px; font-size: 20px; font-weight: 750; font-variant-numeric: tabular-nums; }
+    .stat-detail { color: var(--muted); font-size: 13px; }
+
+    .chart-panel { margin-bottom: 18px; }
+
+    .chart-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 8px;
+    }
+
+    .chart-head h3 { margin: 0; }
+
+    canvas.chart {
+      display: block;
+      width: 100%;
+      height: 520px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      touch-action: manipulation;
+    }
+
+    canvas.line-chart { height: 390px; }
+
+    .probe {
+      min-height: 30px;
+      padding-top: 7px;
+      color: var(--muted);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .model-status {
+      margin: 9px 0 0;
+      padding: 10px 12px;
+      border-radius: 8px;
+      background: var(--surface-2);
+    }
+
+    .model-status.good { color: var(--success); }
+    .model-status.warn { color: var(--warning); }
+    .model-status.bad { color: var(--danger); }
+
+    .table-wrap { overflow-x: auto; }
+
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 9px 10px; text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap; }
+    th { color: var(--muted); font-size: 13px; }
+    td { font-variant-numeric: tabular-nums; }
+
+    .case-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 12px;
+      margin-top: 12px;
+    }
+
+    .case-card {
+      min-width: 0;
+      padding: 14px;
+      background: var(--surface-2);
+      border-radius: 10px;
+    }
+
+    .case-card-head {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      margin-bottom: 8px;
+    }
+
+    .case-card-head input[type="text"] {
+      min-width: 0;
+      width: 100%;
+      min-height: 40px;
+      padding: 7px 9px;
+      color: var(--text);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 7px;
+    }
+
+    .case-swatch {
+      flex: 0 0 34px;
+      height: 4px;
+      border-radius: 4px;
+      background: var(--case-color);
+    }
+
+    .case-summary {
+      min-height: 46px;
+      margin: 0 0 10px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .case-actions { display: flex; gap: 7px; flex-wrap: wrap; }
+    .case-actions button { min-height: 38px; padding: 6px 10px; }
+    .case-actions .danger { color: var(--danger); }
+
+    .compare-legend {
+      display: flex;
+      gap: 8px 18px;
+      flex-wrap: wrap;
+      margin: 8px 0 12px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .legend-item { display: inline-flex; align-items: center; gap: 7px; }
+
+    .legend-line {
+      width: 30px;
+      border-top: 3px solid var(--legend-color);
+    }
+
+    .legend-line.dash-1 { border-top-style: dashed; }
+    .legend-line.dash-2 { border-top-style: dotted; }
+
+    .empty-state {
+      padding: 22px;
+      color: var(--muted);
+      text-align: center;
+      background: var(--surface-2);
+      border-radius: 10px;
+    }
+
+    footer { margin-top: 42px; padding-top: 18px; border-top: 1px solid var(--border); color: var(--muted); }
+
+    @media (max-width: 860px) {
+      .theory-grid, .sim-layout { grid-template-columns: 1fr; }
+      .controls-panel { position: static; }
+      .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .compare-controls { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+
+    @media (max-width: 560px) {
+      .page { padding: 22px 14px 54px; }
+      .panel { padding: 15px; }
+      .form-grid, .stats { grid-template-columns: 1fr; }
+      .compare-controls { grid-template-columns: 1fr; }
+      canvas.chart { height: 400px; }
+      canvas.line-chart { height: 340px; }
+      .toc { display: grid; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+    }
+  </style>
+</head>
+<body>
+  <section id="accessGate" class="gate" aria-labelledby="gateTitle">
+    <form id="accessForm" class="gate-card">
+      <h1 id="gateTitle">双导线磁场仿真</h1>
+      <p>请输入访问密码</p>
+      <div class="field">
+        <!-- <label for="accessPassword">访问密码</label> -->
+        <input id="accessPassword" type="password" autocomplete="current-password" required>
+      </div>
+      <div class="actions" style="margin-top:16px">
+        <button class="primary" type="submit">进入仿真</button>
+      </div>
+      <p id="accessError" class="error" role="alert" aria-live="assertive"></p>
+      <!-- <p class="note">提示：GitHub Pages 是静态网站，此密码用于减少随意访问，不能替代服务端身份验证。</p> -->
+    </form>
+  </section>
+
+  <main id="app" class="page hidden">
+    <header class="page-header">
+      <h1>两根矩形截面直导线的磁场仿真</h1>
+      <p class="lede">研究两根沿 \(Y\) 方向无限延伸、通反向直流电流的直导线，在 \(XZ\) 截面内产生的分磁场与总磁场。</p>
+      <nav class="toc" aria-label="页面目录">
+        <a href="#theory">理论模型</a>
+        <a href="#simulator">参数与仿真</a>
+        <a href="#limits">适用范围</a>
+        <a href="./index.html">返回首页</a>
+      </nav>
+    </header>
+
+    <article id="theory" class="theory">
+      <h2>理论模型</h2>
+      <div class="theory-grid">
+        <section class="panel">
+          <h3>1. 坐标系与几何</h3>
+          <p>两根导线均沿 \(Y\) 方向无限延伸，截面位于 \(XZ\) 平面。导线1位于左侧、通 \(+Y\) 电流；导线2位于右侧、通 \(-Y\) 电流。两根导线内侧边缘之间的距离为 \(g\)，间隙中心定义为 \(x=0\)。</p>
+          <p>基板平面定义为 \(z=0\)，仅作为高度参考，不设置磁性、电导率或感应电流。</p>
+        </section>
+
+        <section class="panel">
+          <h3>2. 矩形截面电流</h3>
+          <p>纯直流在均匀矩形截面内按均匀体电流密度处理：</p>
+          <div class="formula-scroll">\[J_y=\frac{I}{wt}\]</div>
+          <p>其中 \(w\) 为线宽、\(t\) 为厚度。该模型保留导线内部和边缘附近的磁场，不会产生无限细线在中心位置的发散。</p>
+        </section>
+
+        <section class="panel">
+          <h3>3. 毕奥–萨伐尔积分</h3>
+          <p>截面微元 \(dx'dz'\) 携带电流 \(dI=J_y dx'dz'\)。对沿 \(+Y\) 的电流：</p>
+          <div class="formula-scroll">
+            \[
+            dB_x=\frac{\mu_0dI}{2\pi}\frac{z-z'}{(x-x')^2+(z-z')^2},
+            \]
+            \[
+            dB_z=-\frac{\mu_0dI}{2\pi}\frac{x-x'}{(x-x')^2+(z-z')^2}.
+            \]
+          </div>
+          <p>程序在每个矩形截面上计算上述面积积分。沿 \(-Y\) 的导线通过负号反转磁场方向。</p>
+        </section>
+
+        <section class="panel">
+          <h3>4. 矢量叠加</h3>
+          <div class="formula-scroll">
+            \[
+            B_x=B_{x,1}+B_{x,2},\qquad B_z=B_{z,1}+B_{z,2},
+            \]
+            \[
+            B_y=0,\qquad |\mathbf B|=\sqrt{B_x^2+B_z^2}.
+            \]
+          </div>
+          <p>总场必须先分别叠加两个有符号分量，再计算大小，不能直接把两个磁场大小相加。</p>
+        </section>
+
+        <section class="panel">
+          <h3>5. 无限细线近似</h3>
+          <p>当观察距离远大于导线截面尺寸时，可把电流集中在截面中心：</p>
+          <div class="formula-scroll">\[B_{\mathrm{line}}=\frac{\mu_0I}{2\pi r}\]</div>
+          <p>页面始终以有限矩形截面为正式结果，只在一维图中按需叠加细线近似，并计算两种模型在整条观察线上的归一化最大差异。</p>
+          <p>几何远场指标使用 \(K=r/a\)，其中 \(a=\tfrac12\sqrt{w^2+t^2}\)。通常 \(K<5\) 属于近场，\(K\ge10\) 才更适合细线近似。</p>
+        </section>
+
+        <section class="panel">
+          <h3>6. 材料、电阻与损耗</h3>
+          <p>金、铜和铝均按 \(\mu_r\approx1\) 处理，因此在总电流和几何相同时，材料不会明显改变磁场。材料用于计算 \(20^\circ\mathrm C\) 下的单位长度电阻与焦耳损耗：</p>
+          <div class="formula-scroll">
+            \[R'=\frac{\rho}{wt},\qquad P'=I^2R'\]
+          </div>
+          <p>电阻率采用典型块体值；实际芯片互连还会受到薄膜工艺、晶粒、温升和尺寸效应影响。</p>
+        </section>
+      </div>
+
+      <section id="limits" class="panel assumptions" style="margin-top:18px">
+        <h3>7. 适用范围与限制</h3>
+        <ul>
+          <li>适用于无限长、矩形截面、均匀直流密度的二维磁静态问题。</li>
+          <li>忽略导线端部、供电端、远处回流路径以及其他互连结构。</li>
+          <li>忽略交流趋肤效应、邻近效应、磁性材料、基板涡流和封装结构。</li>
+          <li>损耗结果不等同于温升或电迁移寿命评估；极高电流密度参数仍允许计算，但会给出提示。</li>
+          <!-- <li>结果用于教学、趋势研究和工程估算，不用于流片或安全认证。</li> -->
+        </ul>
+      </section>
+    </article>
+
+    <section id="simulator" class="simulator">
+      <h2>参数与仿真</h2>
+      <div class="mode-tabs" role="tablist" aria-label="仿真模式">
+        <button id="singleModeTab" class="mode-tab" type="button" role="tab" aria-selected="true" aria-controls="singleModePanel">单次仿真</button>
+        <button id="compareModeTab" class="mode-tab" type="button" role="tab" aria-selected="false" aria-controls="compareModePanel">参数对比</button>
+      </div>
+
+      <div id="singleModePanel" role="tabpanel" aria-labelledby="singleModeTab">
+      <div class="sim-layout">
+        <form id="parameterForm" class="panel controls-panel" novalidate>
+          <details class="parameter-group" open>
+            <summary>导线1（左侧，+Y）</summary>
+            <div class="parameter-body form-grid">
+              <div class="field"><label for="w1">线宽</label><div class="input-unit"><input id="w1" type="number" min="0.5" max="10" step="0.1" value="2" required><span class="unit">μm</span></div></div>
+              <div class="field"><label for="t1">厚度</label><div class="input-unit"><input id="t1" type="number" min="0.1" max="0.4" step="0.01" value="0.2" required><span class="unit">μm</span></div></div>
+              <div class="field"><label for="h1">底面高度</label><div class="input-unit"><input id="h1" type="number" min="0" max="200" step="0.1" value="0" required><span class="unit">μm</span></div></div>
+              <div class="field"><label for="i1">电流幅值</label><div class="input-unit"><input id="i1" type="number" min="0" max="100" step="0.1" value="10" required><span class="unit">mA</span></div></div>
+              <div class="field" style="grid-column:1/-1"><label for="m1">材质</label><select id="m1"><option value="copper">铜</option><option value="gold">金</option><option value="aluminum">铝</option></select></div>
+            </div>
+          </details>
+
+          <details class="parameter-group" open>
+            <summary>导线2（右侧，−Y）</summary>
+            <div class="parameter-body form-grid">
+              <div class="field"><label for="w2">线宽</label><div class="input-unit"><input id="w2" type="number" min="0.5" max="10" step="0.1" value="2" required><span class="unit">μm</span></div></div>
+              <div class="field"><label for="t2">厚度</label><div class="input-unit"><input id="t2" type="number" min="0.1" max="0.4" step="0.01" value="0.2" required><span class="unit">μm</span></div></div>
+              <div class="field"><label for="h2">底面高度</label><div class="input-unit"><input id="h2" type="number" min="0" max="200" step="0.1" value="0" required><span class="unit">μm</span></div></div>
+              <div class="field"><label for="i2">电流幅值</label><div class="input-unit"><input id="i2" type="number" min="0" max="100" step="0.1" value="10" required><span class="unit">mA</span></div></div>
+              <div class="field" style="grid-column:1/-1"><label for="m2">材质</label><select id="m2"><option value="copper">铜</option><option value="gold">金</option><option value="aluminum">铝</option></select></div>
+            </div>
+          </details>
+
+          <details class="parameter-group" open>
+            <summary>间距与观察面</summary>
+            <div class="parameter-body form-grid">
+              <div class="field"><label for="gap">边缘间距</label><div class="input-unit"><input id="gap" type="number" min="0.5" max="5" step="0.1" value="1" required><span class="unit">μm</span></div></div>
+              <div class="field"><label for="dObs">相对导线1上表面</label><div class="input-unit"><input id="dObs" type="number" min="0" max="200" step="0.1" value="1" required><span class="unit">μm</span></div></div>
+            </div>
+          </details>
+
+          <details class="parameter-group" open>
+            <summary>显示设置</summary>
+            <div class="parameter-body">
+              <div class="form-grid">
+              <div class="field"><label for="sourceSelect">场来源</label><select id="sourceSelect"><option value="total">总场</option><option value="wire1">导线1</option><option value="wire2">导线2</option></select></div>
+              <div class="field"><label for="quantitySelect">场量</label><select id="quantitySelect"><option value="mag">|B|</option><option value="bx">Bx</option><option value="bz">Bz</option></select></div>
+              <div class="field"><label for="scaleSelect">|B| 色标</label><select id="scaleSelect"><option value="log">对数</option><option value="linear">线性</option></select></div>
+              <div class="field"><label for="precisionSelect">绘图精度</label><select id="precisionSelect"><option value="standard">标准模式</option><option value="high">高精度模式</option></select></div>
+              </div>
+              <label class="check-row"><input id="showArrows" type="checkbox" checked>在 |B| 云图上显示方向箭头</label>
+              <label class="check-row"><input id="showThin" type="checkbox" checked>在一维图上显示无限细线近似</label>
+              <label class="check-row"><input id="customRange" type="checkbox">手动设置观察范围</label>
+              <div id="rangeFields" class="form-grid hidden">
+                <div class="field"><label for="xmin">X 最小值</label><div class="input-unit"><input id="xmin" type="number" step="0.1" value="-5"><span class="unit">μm</span></div></div>
+                <div class="field"><label for="xmax">X 最大值</label><div class="input-unit"><input id="xmax" type="number" step="0.1" value="5"><span class="unit">μm</span></div></div>
+                <div class="field"><label for="zmin">Z 最小值</label><div class="input-unit"><input id="zmin" type="number" step="0.1" value="0"><span class="unit">μm</span></div></div>
+                <div class="field"><label for="zmax">Z 最大值</label><div class="input-unit"><input id="zmax" type="number" step="0.1" value="4"><span class="unit">μm</span></div></div>
+              </div>
+            </div>
+          </details>
+
+          <div class="actions">
+            <button class="primary" type="submit">开始计算</button>
+            <button id="autoRangeButton" type="button">恢复自动范围</button>
+            <button id="addComparisonButton" type="button" disabled>加入对比</button>
+          </div>
+          <p id="formError" class="error" role="alert" aria-live="assertive"></p>
+        </form>
+
+        <div class="results">
+          <p id="calculationStatus" class="status-line" aria-live="polite">等待计算。</p>
+
+          <div class="stats" aria-label="关键结果">
+            <div class="stat"><div class="stat-label">间隙中心总磁场 |B|</div><div id="centerMag" class="stat-value">—</div><div id="centerComponents" class="stat-detail">—</div></div>
+            <div class="stat"><div class="stat-label">观察线上最大总磁场</div><div id="lineMax" class="stat-value">—</div><div id="lineMaxPosition" class="stat-detail">—</div></div>
+            <div class="stat"><div class="stat-label">观察面绝对高度</div><div id="absoluteHeight" class="stat-value">—</div><div id="relativeWire2" class="stat-detail">—</div></div>
+          </div>
+
+          <section class="panel chart-panel">
+            <div class="chart-head"><h3 id="heatmapTitle">二维磁场云图</h3><span id="heatmapRange" class="status-line"></span></div>
+            <canvas id="heatmapCanvas" class="chart" role="img" aria-label="XZ 截面二维磁场云图"></canvas>
+            <div id="probeReadout" class="probe" aria-live="polite">点击云图可读取任意位置的磁场。</div>
+          </section>
+
+          <section class="panel chart-panel">
+            <div class="chart-head"><h3 id="lineTitle">沿 X 方向的一维曲线</h3><span id="lineHeightLabel" class="status-line"></span></div>
+            <canvas id="lineCanvas" class="chart line-chart" role="img" aria-label="观察高度上沿 X 方向的磁场曲线"></canvas>
+            <p id="thinStatus" class="model-status">细线近似误差将在计算后显示。</p>
+          </section>
+
+          <section class="panel">
+            <h3>导线电学参数（20 °C）</h3>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>导线</th><th>材质</th><th>截面积</th><th>电流密度</th><th>单位长度电阻</th><th>单位长度损耗</th></tr></thead>
+                <tbody id="wireTableBody"></tbody>
+              </table>
+            </div>
+            <p id="densityWarning" class="error"></p>
+          </section>
+        </div>
+      </div>
+      </div>
+
+      <div id="compareModePanel" role="tabpanel" aria-labelledby="compareModeTab" class="hidden">
+        <section class="panel">
+          <div class="chart-head">
+            <h3>公共对比设置</h3>
+            <span id="compareCount" class="status-line">0 / 5 个方案</span>
+          </div>
+          <div class="compare-controls">
+            <div class="field"><label for="compareSource">场来源</label><select id="compareSource"><option value="total">总场</option><option value="wire1">导线1</option><option value="wire2">导线2</option></select></div>
+            <div class="field"><label for="compareQuantity">场量</label><select id="compareQuantity"><option value="mag">|B|</option><option value="bx">Bx</option><option value="bz">Bz</option></select></div>
+            <div class="field"><label for="comparePrecision">绘图精度</label><select id="comparePrecision"><option value="standard">标准模式</option><option value="high">高精度模式</option></select></div>
+            <div class="field"><label for="compareHeightMode">统一高度基准</label><select id="compareHeightMode"><option value="absolute">绝对高度</option><option value="relative">相对导线1上表面</option></select></div>
+            <div class="field"><label id="compareHeightLabel" for="compareHeightValue">绝对观察高度</label><div class="input-unit"><input id="compareHeightValue" type="number" min="0" max="400" step="0.1" value="1.2"><span class="unit">μm</span></div></div>
+            <div class="field"><label for="compareXmin">X 最小值</label><div class="input-unit"><input id="compareXmin" type="number" step="0.1" value="-5" disabled><span class="unit">μm</span></div></div>
+            <div class="field"><label for="compareXmax">X 最大值</label><div class="input-unit"><input id="compareXmax" type="number" step="0.1" value="5" disabled><span class="unit">μm</span></div></div>
+            <div class="compare-height-options">
+              <label class="check-row"><input id="compareUnifiedHeight" type="checkbox" checked>所有方案使用统一观察高度</label>
+              <label class="check-row"><input id="compareCustomRange" type="checkbox">手动设置统一 X 范围</label>
+            </div>
+          </div>
+          <p id="compareError" class="error" role="alert" aria-live="assertive"></p>
+        </section>
+
+        <section class="panel chart-panel" style="margin-top:18px">
+          <div class="chart-head"><h3 id="compareTitle">参数对比曲线</h3><span id="compareStatus" class="status-line">请先加入方案。</span></div>
+          <div id="compareLegend" class="compare-legend"></div>
+          <div id="compareEmpty" class="empty-state">请在“单次仿真”中完成计算，然后点击“加入对比”。</div>
+          <canvas id="compareCanvas" class="chart line-chart hidden" role="img" aria-label="多组参数的一维磁场对比曲线"></canvas>
+          <div id="compareProbe" class="probe" aria-live="polite">点击曲线图可读取同一 X 位置的各方案数值。</div>
+        </section>
+
+        <section class="panel" style="margin-bottom:18px">
+          <div class="chart-head"><h3>对比方案</h3><button id="clearCasesButton" type="button">清空全部</button></div>
+          <div id="caseList" class="case-list"></div>
+        </section>
+
+        <section class="panel">
+          <h3>关键结果对比</h3>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>方案</th><th>观察高度</th><th>x=0</th><th>最大绝对值</th><th>位置</th><th>相对基准</th></tr></thead>
+              <tbody id="compareTableBody"></tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+    </section>
+
+    <!-- <footer>有限矩形截面模型为正式结果；无限细线结果仅用于远场教学对照。</footer> -->
+  </main>
+
+  <script>
+    'use strict';
+
+    const ACCESS_HASH = '8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92';
+    const SESSION_KEY = 'two-wire-magnetic-access';
+    const CASES_KEY = 'two-wire-magnetic-comparison-cases';
+    const MAX_CASES = 5;
+    const CASE_COLORS = ['#155eef','#d97706','#059669','#7c3aed','#dc2626'];
+    const CASE_DASHES = [[],[8,5],[2,4],[10,4,2,4],[12,5]];
+    const MU0 = 4 * Math.PI * 1e-7;
+    const UM = 1e-6;
+    const MA = 1e-3;
+    const MATERIALS = {
+      copper: { name: '铜', rho: 1.68e-8, color: '#b87333' },
+      gold: { name: '金', rho: 2.44e-8, color: '#d4a72c' },
+      aluminum: { name: '铝', rho: 2.82e-8, color: '#9aa5b1' }
+    };
+
+    const $ = id => document.getElementById(id);
+    const accessGate = $('accessGate');
+    const app = $('app');
+    const form = $('parameterForm');
+    let state = null;
+    let heatmapMeta = null;
+    let compareMeta = null;
+    let comparisonCases = loadComparisonCases();
+    let lastCalculatedSignature = '';
+    let resizeTimer = null;
+
+    async function sha256(text) {
+      const data = new TextEncoder().encode(text);
+      const hash = await crypto.subtle.digest('SHA-256', data);
+      return Array.from(new Uint8Array(hash)).map(v => v.toString(16).padStart(2, '0')).join('');
+    }
+
+    function unlock() {
+      accessGate.classList.add('hidden');
+      app.classList.remove('hidden');
+      requestAnimationFrame(() => calculate());
+    }
+
+    $('accessForm').addEventListener('submit', async event => {
+      event.preventDefault();
+      const digest = await sha256($('accessPassword').value);
+      if (digest === ACCESS_HASH) {
+        sessionStorage.setItem(SESSION_KEY, 'ok');
+        $('accessError').textContent = '';
+        unlock();
+      } else {
+        $('accessError').textContent = '密码不正确。';
+        $('accessPassword').select();
+      }
+    });
+
+    if (sessionStorage.getItem(SESSION_KEY) === 'ok') unlock();
+
+    $('customRange').addEventListener('change', event => {
+      $('rangeFields').classList.toggle('hidden', !event.target.checked);
+    });
+
+    $('autoRangeButton').addEventListener('click', () => {
+      $('customRange').checked = false;
+      $('rangeFields').classList.add('hidden');
+      if (state) calculate();
+    });
+
+    form.addEventListener('submit', event => {
+      event.preventDefault();
+      calculate();
+    });
+
+    ['sourceSelect', 'quantitySelect', 'scaleSelect', 'showArrows', 'showThin'].forEach(id => {
+      $(id).addEventListener('change', () => { if (state) renderAll(); });
+    });
+
+    function n(id) { return Number($(id).value); }
+
+    function captureParameterValues() {
+      const values = ['w1','t1','h1','i1','w2','t2','h2','i2','gap','dObs'].map(n);
+      if (values.some(value => !Number.isFinite(value))) throw new Error('请完整填写所有数值参数。');
+      const constrained = [
+        ['w1',0.5,10,'导线1线宽'], ['t1',0.1,0.4,'导线1厚度'], ['h1',0,200,'导线1底面高度'], ['i1',0,100,'导线1电流'],
+        ['w2',0.5,10,'导线2线宽'], ['t2',0.1,0.4,'导线2厚度'], ['h2',0,200,'导线2底面高度'], ['i2',0,100,'导线2电流'],
+        ['gap',0.5,5,'边缘间距'], ['dObs',0,200,'观察距离']
+      ];
+      for (const [id,min,max,label] of constrained) {
+        const value = n(id);
+        if (value < min || value > max) throw new Error(`${label}必须位于 ${min}–${max} 范围内。`);
+      }
+      return {
+        w1:n('w1'),t1:n('t1'),h1:n('h1'),i1:n('i1'),m1:$('m1').value,
+        w2:n('w2'),t2:n('t2'),h2:n('h2'),i2:n('i2'),m2:$('m2').value,
+        gap:n('gap'),dObs:n('dObs')
+      };
+    }
+
+    function stateFromParams(params) {
+      const gap=params.gap,w1=params.w1,w2=params.w2;
+      const p = {
+        gap,dObs:params.dObs,
+        wire1:makeWire(1,-gap/2-w1,-gap/2,params.h1,params.h1+params.t1,params.i1*MA,params.m1),
+        wire2:makeWire(2,gap/2,gap/2+w2,params.h2,params.h2+params.t2,-params.i2*MA,params.m2)
+      };
+      p.zObs = p.wire1.zmax / UM + p.dObs;
+      return p;
+    }
+
+    function readParameters() {
+      const p=stateFromParams(captureParameterValues());
+      p.range = $('customRange').checked ? manualRange() : automaticRange(p);
+      return p;
+    }
+
+    function parameterSignature(params) {
+      return JSON.stringify(['w1','t1','h1','i1','m1','w2','t2','h2','i2','m2','gap','dObs'].map(key=>params[key]));
+    }
+
+    function applyParamsToForm(params) {
+      for(const id of ['w1','t1','h1','i1','m1','w2','t2','h2','i2','m2','gap','dObs']) $(id).value=params[id];
+      calculate();
+    }
+
+    function makeWire(id, xminUm, xmaxUm, zminUm, zmaxUm, current, material) {
+      return {
+        id, xmin: xminUm * UM, xmax: xmaxUm * UM, zmin: zminUm * UM, zmax: zmaxUm * UM,
+        current, material,
+        get width() { return this.xmax - this.xmin; },
+        get thickness() { return this.zmax - this.zmin; },
+        get xc() { return (this.xmin + this.xmax) / 2; },
+        get zc() { return (this.zmin + this.zmax) / 2; }
+      };
+    }
+
+    function manualRange() {
+      const xmin = n('xmin'), xmax = n('xmax'), zmin = n('zmin'), zmax = n('zmax');
+      if (![xmin,xmax,zmin,zmax].every(Number.isFinite)) throw new Error('请完整填写手动观察范围。');
+      if (xmin >= xmax || zmin >= zmax) throw new Error('观察范围必须满足最小值小于最大值。');
+      return { xmin:xmin*UM, xmax:xmax*UM, zmin:zmin*UM, zmax:zmax*UM };
+    }
+
+    function automaticRange(p) {
+      const left = p.wire1.xmin / UM;
+      const right = p.wire2.xmax / UM;
+      const baseSpan = right - left;
+      const minZ = Math.min(0, p.wire1.zmin/UM, p.wire2.zmin/UM);
+      const maxFeatureZ = Math.max(p.wire1.zmax/UM, p.wire2.zmax/UM, p.zObs);
+      const verticalSpan = Math.max(maxFeatureZ - minZ, 1);
+      const xHalf = Math.max(Math.abs(left), Math.abs(right), baseSpan * 0.85, verticalSpan * 0.72);
+      const zPad = Math.max(verticalSpan * 0.16, 0.5);
+      return { xmin:-xHalf*UM, xmax:xHalf*UM, zmin:Math.max(0,minZ-zPad*0.15)*UM, zmax:(maxFeatureZ+zPad)*UM };
+    }
+
+    function primitive(q, s) {
+      const r2 = q*q + s*s;
+      if (r2 < 1e-40) return 0;
+      const angleTerm = Math.abs(s) < 1e-30 ? 0 : 2*s*Math.atan(q/s);
+      return q * Math.log(r2) - 2*q + angleTerm;
+    }
+
+    function rectangleField(x, z, wire) {
+      if (wire.current === 0) return { bx:0, bz:0, mag:0 };
+      const ua = x - wire.xmin, ub = x - wire.xmax;
+      const vc = z - wire.zmin, vd = z - wire.zmax;
+      const intBx = 0.5 * (primitive(ua,vc) - primitive(ub,vc) - primitive(ua,vd) + primitive(ub,vd));
+      const intUx = 0.5 * (primitive(vc,ua) - primitive(vd,ua) - primitive(vc,ub) + primitive(vd,ub));
+      const currentDensity = wire.current / (wire.width * wire.thickness);
+      const factor = MU0 * currentDensity / (2*Math.PI);
+      const bx = factor * intBx;
+      const bz = -factor * intUx;
+      return { bx, bz, mag:Math.hypot(bx,bz) };
+    }
+
+    function thinField(x, z, wire) {
+      const dx = x-wire.xc, dz = z-wire.zc;
+      const r2 = dx*dx + dz*dz;
+      if (wire.current === 0) return { bx:0, bz:0, mag:0 };
+      if (r2 < 1e-30) return { bx:NaN, bz:NaN, mag:NaN };
+      const factor = MU0 * wire.current / (2*Math.PI*r2);
+      const bx = factor*dz, bz = -factor*dx;
+      return { bx, bz, mag:Math.hypot(bx,bz) };
+    }
+
+    function combine(a,b) {
+      const bx=a.bx+b.bx, bz=a.bz+b.bz;
+      return { bx, bz, mag:Math.hypot(bx,bz) };
+    }
+
+    function fieldAtState(model,x,z,source='total',thin=false) {
+      const fn = thin ? thinField : rectangleField;
+      const f1=fn(x,z,model.wire1), f2=fn(x,z,model.wire2);
+      if (source==='wire1') return f1;
+      if (source==='wire2') return f2;
+      return combine(f1,f2);
+    }
+
+    function fieldAt(x,z,source='total',thin=false) { return fieldAtState(state,x,z,source,thin); }
+
+    function valueForQuantity(field,q) {
+      return q==='bx' ? field.bx : q==='bz' ? field.bz : field.mag;
+    }
+
+    function selectedValue(field) { return valueForQuantity(field,$('quantitySelect').value); }
+
+    function calculate() {
+      const start=performance.now();
+      try {
+        state=readParameters();
+        lastCalculatedSignature=parameterSignature(captureParameterValues());
+        $('addComparisonButton').disabled=false;
+        $('formError').textContent='';
+        renderAll();
+        const elapsed=performance.now()-start;
+        $('calculationStatus').textContent=`计算完成 · ${$('precisionSelect').selectedOptions[0].text} · ${elapsed.toFixed(0)} ms`;
+      } catch (error) {
+        $('formError').textContent=error.message;
+        $('calculationStatus').textContent='参数有误，未执行计算。';
+      }
+    }
+
+    function renderAll() {
+      renderSummary();
+      renderElectrical();
+      renderHeatmap();
+      renderLineChart();
+    }
+
+    function sourceLabel() { return $('sourceSelect').selectedOptions[0].text; }
+    function quantityLabel() { return $('quantitySelect').value==='mag' ? '|B|' : $('quantitySelect').value==='bx' ? 'Bx' : 'Bz'; }
+
+    function formatField(value) {
+      const a=Math.abs(value);
+      if (!Number.isFinite(value)) return '—';
+      if (a>=1) return `${value.toFixed(4)} T`;
+      if (a>=1e-3) return `${(value*1e3).toFixed(4)} mT`;
+      if (a>=1e-6) return `${(value*1e6).toFixed(4)} μT`;
+      if (a>=1e-9) return `${(value*1e9).toFixed(4)} nT`;
+      return `${value.toExponential(3)} T`;
+    }
+
+    function formatResistance(value) {
+      if (value>=1e3) return `${(value/1e3).toFixed(3)} kΩ/m`;
+      return `${value.toFixed(3)} Ω/m`;
+    }
+
+    function formatPower(value) {
+      if (value>=1) return `${value.toFixed(3)} W/m`;
+      if (value>=1e-3) return `${(value*1e3).toFixed(3)} mW/m`;
+      return `${(value*1e6).toFixed(3)} μW/m`;
+    }
+
+    function renderSummary() {
+      const total=combine(rectangleField(0,state.zObs*UM,state.wire1), rectangleField(0,state.zObs*UM,state.wire2));
+      const xs=sampleXs(801);
+      let max=-Infinity, maxX=0;
+      for (const x of xs) {
+        const value=fieldAt(x,state.zObs*UM,'total').mag;
+        if (value>max) { max=value; maxX=x; }
+      }
+      $('centerMag').textContent=formatField(total.mag);
+      $('centerComponents').textContent=`Bx ${formatField(total.bx)} · Bz ${formatField(total.bz)}`;
+      $('lineMax').textContent=formatField(max);
+      $('lineMaxPosition').textContent=`x = ${(maxX/UM).toFixed(4)} μm`;
+      $('absoluteHeight').textContent=`${state.zObs.toFixed(4)} μm`;
+      const rel2=state.zObs-state.wire2.zmax/UM;
+      const zObsM=state.zObs*UM;
+      let positionNote='';
+      if(zObsM>=state.wire2.zmin&&zObsM<=state.wire2.zmax) positionNote='（观察面穿过导线2）';
+      else if(zObsM<state.wire2.zmin) positionNote='（位于导线2下方）';
+      $('relativeWire2').textContent=`相对导线2上表面 ${rel2.toFixed(4)} μm${positionNote}`;
+    }
+
+    function renderElectrical() {
+      const rows=[state.wire1,state.wire2].map(wire => {
+        const material=MATERIALS[wire.material];
+        const area=wire.width*wire.thickness;
+        const density=Math.abs(wire.current)/area;
+        const resistance=material.rho/area;
+        const power=wire.current*wire.current*resistance;
+        return {wire,material,area,density,resistance,power};
+      });
+      $('wireTableBody').innerHTML=rows.map(r => `<tr><td>导线${r.wire.id}</td><td>${r.material.name}</td><td>${(r.area/1e-12).toFixed(4)} μm²</td><td>${(r.density/1e10).toFixed(4)} MA/cm²</td><td>${formatResistance(r.resistance)}</td><td>${formatPower(r.power)}</td></tr>`).join('');
+      const extreme=rows.some(r => r.density>1e11);
+      $('densityWarning').textContent=extreme?'当前参数产生很高的电流密度；本页面不评估温升和电迁移可靠性。':'';
+    }
+
+    function sampleXs(count) {
+      const out=[];
+      for (let i=0;i<count;i++) out.push(state.range.xmin+(state.range.xmax-state.range.xmin)*i/(count-1));
+      return out;
+    }
+
+    function canvasSetup(canvas) {
+      const dpr=Math.min(window.devicePixelRatio||1,2);
+      const rect=canvas.getBoundingClientRect();
+      const width=Math.max(320,Math.round(rect.width));
+      const height=Math.max(280,Math.round(rect.height));
+      canvas.width=Math.round(width*dpr); canvas.height=Math.round(height*dpr);
+      const ctx=canvas.getContext('2d');
+      ctx.setTransform(dpr,0,0,dpr,0,0);
+      return {ctx,width,height};
+    }
+
+    function theme() {
+      const s=getComputedStyle(document.documentElement);
+      return {surface:s.getPropertyValue('--surface').trim(),text:s.getPropertyValue('--text').trim(),muted:s.getPropertyValue('--muted').trim(),border:s.getPropertyValue('--border').trim(),grid:s.getPropertyValue('--grid').trim(),axis:s.getPropertyValue('--axis').trim()};
+    }
+
+    function turbo(t) {
+      t=Math.max(0,Math.min(1,t));
+      const stops=[[0,[48,18,59]],[0.18,[43,85,180]],[0.38,[25,170,183]],[0.58,[120,213,72]],[0.78,[250,190,40]],[1,[180,22,30]]];
+      for(let i=1;i<stops.length;i++) if(t<=stops[i][0]) {
+        const [p0,c0]=stops[i-1], [p1,c1]=stops[i], u=(t-p0)/(p1-p0);
+        return c0.map((v,k)=>Math.round(v+(c1[k]-v)*u));
+      }
+      return stops.at(-1)[1];
+    }
+
+    function diverging(t) {
+      t=Math.max(0,Math.min(1,t));
+      if(t<0.5){const u=t*2;return [Math.round(35+220*u),Math.round(90+165*u),Math.round(180+75*u)];}
+      const u=(t-0.5)*2;return [255,Math.round(255-205*u),Math.round(255-205*u)];
+    }
+
+    function renderHeatmap() {
+      const canvas=$('heatmapCanvas');
+      const {ctx,width,height}=canvasSetup(canvas), colors=theme();
+      const margin={left:62,right:112,top:48,bottom:52};
+      const pw=width-margin.left-margin.right, ph=height-margin.top-margin.bottom;
+      if(pw<40||ph<40) return;
+      const mobile=width<600, high=$('precisionSelect').value==='high';
+      const nx=high?(mobile?241:341):(mobile?141:201);
+      const nz=high?(mobile?181:251):(mobile?111:151);
+      const values=new Float64Array(nx*nz);
+      let maxAbs=0, maxValue=0, minPositive=Infinity;
+      const source=$('sourceSelect').value, quantity=$('quantitySelect').value;
+      for(let j=0;j<nz;j++) {
+        const z=state.range.zmax-(state.range.zmax-state.range.zmin)*j/(nz-1);
+        for(let i=0;i<nx;i++) {
+          const x=state.range.xmin+(state.range.xmax-state.range.xmin)*i/(nx-1);
+          const value=selectedValue(fieldAt(x,z,source));
+          values[j*nx+i]=value;
+          maxAbs=Math.max(maxAbs,Math.abs(value)); maxValue=Math.max(maxValue,value);
+          if(value>0) minPositive=Math.min(minPositive,value);
+        }
+      }
+      if(maxAbs===0) maxAbs=1;
+      if(!Number.isFinite(minPositive)) minPositive=maxAbs*1e-6;
+      const logFloor=Math.max(minPositive,maxAbs*1e-5);
+      const image=document.createElement('canvas'); image.width=nx; image.height=nz;
+      const ictx=image.getContext('2d'), img=ictx.createImageData(nx,nz);
+      for(let k=0;k<values.length;k++) {
+        let t;
+        if(quantity==='mag') {
+          t=$('scaleSelect').value==='log' ? (Math.log10(Math.max(values[k],logFloor))-Math.log10(logFloor))/(Math.log10(maxAbs)-Math.log10(logFloor)||1) : values[k]/maxAbs;
+        } else t=0.5+0.5*values[k]/maxAbs;
+        const c=quantity==='mag'?turbo(t):diverging(t);
+        img.data[k*4]=c[0];img.data[k*4+1]=c[1];img.data[k*4+2]=c[2];img.data[k*4+3]=255;
+      }
+      ictx.putImageData(img,0,0);
+      ctx.fillStyle=colors.surface;ctx.fillRect(0,0,width,height);
+      ctx.imageSmoothingEnabled=true;ctx.drawImage(image,margin.left,margin.top,pw,ph);
+
+      const xToPx=x=>margin.left+(x-state.range.xmin)/(state.range.xmax-state.range.xmin)*pw;
+      const zToPx=z=>margin.top+(state.range.zmax-z)/(state.range.zmax-state.range.zmin)*ph;
+      drawGridAxes(ctx,width,height,margin,state.range,colors,'X (μm)','Z (μm)');
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(margin.left,margin.top,pw,ph);
+      ctx.clip();
+      drawConductors(ctx,xToPx,zToPx,pw,ph);
+      const obsY=zToPx(state.zObs*UM);
+      if(obsY>=margin.top&&obsY<=margin.top+ph){ctx.save();ctx.setLineDash([7,5]);ctx.strokeStyle=colors.text;ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(margin.left,obsY);ctx.lineTo(margin.left+pw,obsY);ctx.stroke();ctx.restore();}
+      if(quantity==='mag'&&$('showArrows').checked) drawVectorArrows(ctx,xToPx,zToPx,margin,pw,ph,source,colors);
+      ctx.restore();
+      drawColorBar(ctx,width,height,margin,quantity,maxAbs,logFloor,colors);
+      $('heatmapTitle').textContent=`${sourceLabel()} ${quantityLabel()} 二维云图`;
+      $('heatmapRange').textContent=`X ${(state.range.xmin/UM).toFixed(2)}–${(state.range.xmax/UM).toFixed(2)} μm · Z ${(state.range.zmin/UM).toFixed(2)}–${(state.range.zmax/UM).toFixed(2)} μm`;
+      heatmapMeta={margin,pw,ph,width,height};
+    }
+
+    function drawGridAxes(ctx,width,height,m,r,colors,xLabel,zLabel) {
+      ctx.save();ctx.font='12px system-ui, sans-serif';ctx.fillStyle=colors.muted;ctx.strokeStyle=colors.grid;ctx.lineWidth=1;
+      const xTicks=width<600?4:6, zTicks=height<430?4:6;
+      for(let i=0;i<=xTicks;i++){
+        const px=m.left+(width-m.left-m.right)*i/xTicks, value=(r.xmin+(r.xmax-r.xmin)*i/xTicks)/UM;
+        ctx.beginPath();ctx.moveTo(px,m.top);ctx.lineTo(px,height-m.bottom);ctx.stroke();ctx.textAlign='center';ctx.fillText(value.toFixed(Math.abs(value)<10?2:1),px,height-m.bottom+19);
+      }
+      for(let j=0;j<=zTicks;j++){
+        const py=m.top+(height-m.top-m.bottom)*j/zTicks, value=(r.zmax-(r.zmax-r.zmin)*j/zTicks)/UM;
+        ctx.beginPath();ctx.moveTo(m.left,py);ctx.lineTo(width-m.right,py);ctx.stroke();ctx.textAlign='right';ctx.fillText(value.toFixed(Math.abs(value)<10?2:1),m.left-8,py+4);
+      }
+      ctx.strokeStyle=colors.axis;ctx.strokeRect(m.left,m.top,width-m.left-m.right,height-m.top-m.bottom);
+      ctx.fillStyle=colors.text;ctx.textAlign='center';ctx.fillText(xLabel,m.left+(width-m.left-m.right)/2,height-10);
+      ctx.save();ctx.translate(16,m.top+(height-m.top-m.bottom)/2);ctx.rotate(-Math.PI/2);ctx.fillText(zLabel,0,0);ctx.restore();ctx.restore();
+    }
+
+    function drawConductors(ctx,xToPx,zToPx) {
+      for(const wire of [state.wire1,state.wire2]){
+        const x1=xToPx(wire.xmin),x2=xToPx(wire.xmax),y1=zToPx(wire.zmax),y2=zToPx(wire.zmin);
+        const left=Math.min(x1,x2),top=Math.min(y1,y2),w=Math.abs(x2-x1),h=Math.abs(y2-y1);
+        if(w<0.5||h<0.5) continue;
+        ctx.save();ctx.globalAlpha=0.82;ctx.fillStyle=MATERIALS[wire.material].color;ctx.fillRect(left,top,w,h);ctx.globalAlpha=1;ctx.strokeStyle='#111827';ctx.lineWidth=1.2;ctx.strokeRect(left,top,w,h);
+        if(w>34&&h>16){ctx.fillStyle='#111827';ctx.font='bold 11px system-ui';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(`${wire.id} ${wire.id===1?'+Y':'−Y'}`,left+w/2,top+h/2);}
+        ctx.restore();
+      }
+    }
+
+    function drawVectorArrows(ctx,xToPx,zToPx,m,pw,ph,source,colors) {
+      const cols=12,rows=9,step=Math.min(pw/cols,ph/rows)*0.42;
+      ctx.save();ctx.strokeStyle=colors.text;ctx.fillStyle=colors.text;ctx.globalAlpha=0.78;ctx.lineWidth=1.2;
+      for(let j=1;j<rows;j++)for(let i=1;i<cols;i++){
+        const px=m.left+pw*i/cols,py=m.top+ph*j/rows;
+        const x=state.range.xmin+(state.range.xmax-state.range.xmin)*i/cols;
+        const z=state.range.zmax-(state.range.zmax-state.range.zmin)*j/rows;
+        const f=fieldAt(x,z,source);if(!Number.isFinite(f.mag)||f.mag===0)continue;
+        const dx=f.bx/f.mag*step,dy=-f.bz/f.mag*step;
+        const x1=px-dx/2,y1=py-dy/2,x2=px+dx/2,y2=py+dy/2;
+        ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();
+        const a=Math.atan2(y2-y1,x2-x1),head=4;
+        ctx.beginPath();ctx.moveTo(x2,y2);ctx.lineTo(x2-head*Math.cos(a-0.55),y2-head*Math.sin(a-0.55));ctx.lineTo(x2-head*Math.cos(a+0.55),y2-head*Math.sin(a+0.55));ctx.closePath();ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    function drawColorBar(ctx,width,height,m,quantity,maxAbs,logFloor,colors) {
+      const x=width-m.right+16,y=m.top,w=14,h=height-m.top-m.bottom;
+      for(let i=0;i<h;i++){
+        const t=1-i/(h-1),c=quantity==='mag'?turbo(t):diverging(t);ctx.fillStyle=`rgb(${c.join(',')})`;ctx.fillRect(x,y+i,w,1);
+      }
+      ctx.strokeStyle=colors.axis;ctx.strokeRect(x,y,w,h);ctx.fillStyle=colors.text;ctx.font='11px system-ui';ctx.textAlign='left';
+      ctx.fillText(formatField(maxAbs),x+w+4,y+8);
+      if(quantity==='mag'&&$('scaleSelect').value==='log') ctx.fillText(formatField(logFloor),x+w+4,y+h);
+      else ctx.fillText(quantity==='mag'?'0':formatField(-maxAbs),x+w+4,y+h);
+    }
+
+    function renderLineChart() {
+      const canvas=$('lineCanvas');const {ctx,width,height}=canvasSetup(canvas),colors=theme();
+      const margin={left:76,right:24,top:42,bottom:52},pw=width-margin.left-margin.right,ph=height-margin.top-margin.bottom;
+      const high=$('precisionSelect').value==='high',count=high?1001:601,xs=sampleXs(count),source=$('sourceSelect').value;
+      const finite=[],thin=[];let ymin=Infinity,ymax=-Infinity,maxDiff=0,maxFiniteVector=0,kmin=Infinity;
+      for(const x of xs){
+        const f=fieldAt(x,state.zObs*UM,source,false),v=selectedValue(f);finite.push(v);if(Number.isFinite(v)){ymin=Math.min(ymin,v);ymax=Math.max(ymax,v);}maxFiniteVector=Math.max(maxFiniteVector,f.mag);
+        const ft=fieldAt(x,state.zObs*UM,source,true),vt=selectedValue(ft);thin.push(vt);
+        if(Number.isFinite(ft.bx)&&Number.isFinite(f.bx))maxDiff=Math.max(maxDiff,Math.hypot(ft.bx-f.bx,ft.bz-f.bz));
+        for(const wire of relevantWires(source)){const a=0.5*Math.hypot(wire.width,wire.thickness),r=Math.hypot(x-wire.xc,state.zObs*UM-wire.zc);kmin=Math.min(kmin,r/a);}
+      }
+      if(!Number.isFinite(ymin)||ymin===ymax){ymin=-1e-9;ymax=1e-9;}
+      if($('showThin').checked) for(const v of thin)if(Number.isFinite(v)){ymin=Math.min(ymin,v);ymax=Math.max(ymax,v);}
+      const pad=(ymax-ymin)*0.1||1e-9;ymin-=pad;ymax+=pad;
+      ctx.fillStyle=colors.surface;ctx.fillRect(0,0,width,height);
+      drawLineAxes(ctx,width,height,margin,ymin,ymax,colors);
+      drawSeries(ctx,xs,finite,ymin,ymax,margin,pw,ph,'#155eef',false);
+      if($('showThin').checked)drawSeries(ctx,xs,thin,ymin,ymax,margin,pw,ph,'#d97706',true);
+      drawLineWireBands(ctx,margin,pw,ph);
+      ctx.font='12px system-ui';ctx.fillStyle=colors.text;ctx.textAlign='left';ctx.fillText('有限矩形截面',margin.left+8,18);
+      if($('showThin').checked){ctx.save();ctx.setLineDash([6,4]);ctx.strokeStyle='#d97706';ctx.beginPath();ctx.moveTo(margin.left+124,14);ctx.lineTo(margin.left+154,14);ctx.stroke();ctx.restore();ctx.fillText('无限细线近似',margin.left+162,18);}
+      $('lineTitle').textContent=`${sourceLabel()} ${quantityLabel()} 沿 X 曲线`;
+      $('lineHeightLabel').textContent=`z = ${state.zObs.toFixed(4)} μm`;
+      const error=maxFiniteVector>0?maxDiff/maxFiniteVector*100:0;
+      renderThinStatus(error,kmin);
+    }
+
+    function relevantWires(source){return source==='wire1'?[state.wire1]:source==='wire2'?[state.wire2]:[state.wire1,state.wire2];}
+
+    function drawLineAxes(ctx,width,height,m,ymin,ymax,colors){
+      ctx.save();ctx.font='12px system-ui';ctx.strokeStyle=colors.grid;ctx.fillStyle=colors.muted;ctx.lineWidth=1;
+      const xt=width<600?4:6,yt=5;
+      for(let i=0;i<=xt;i++){const px=m.left+(width-m.left-m.right)*i/xt,x=(state.range.xmin+(state.range.xmax-state.range.xmin)*i/xt)/UM;ctx.beginPath();ctx.moveTo(px,m.top);ctx.lineTo(px,height-m.bottom);ctx.stroke();ctx.textAlign='center';ctx.fillText(x.toFixed(Math.abs(x)<10?2:1),px,height-m.bottom+19);}
+      for(let j=0;j<=yt;j++){const py=m.top+(height-m.top-m.bottom)*j/yt,y=ymax-(ymax-ymin)*j/yt;ctx.beginPath();ctx.moveTo(m.left,py);ctx.lineTo(width-m.right,py);ctx.stroke();ctx.textAlign='right';ctx.fillText(compactField(y),m.left-8,py+4);}
+      if(ymin<0&&ymax>0){const py=m.top+ymax/(ymax-ymin)*(height-m.top-m.bottom);ctx.strokeStyle=colors.axis;ctx.beginPath();ctx.moveTo(m.left,py);ctx.lineTo(width-m.right,py);ctx.stroke();}
+      ctx.strokeStyle=colors.axis;ctx.strokeRect(m.left,m.top,width-m.left-m.right,height-m.top-m.bottom);ctx.fillStyle=colors.text;ctx.textAlign='center';ctx.fillText('X (μm)',m.left+(width-m.left-m.right)/2,height-10);ctx.save();ctx.translate(16,m.top+(height-m.top-m.bottom)/2);ctx.rotate(-Math.PI/2);ctx.fillText(`${quantityLabel()} (T)`,0,0);ctx.restore();ctx.restore();
+    }
+
+    function compactField(value){const a=Math.abs(value);if(a>=1e-3)return `${(value*1e3).toFixed(2)}mT`;if(a>=1e-6)return `${(value*1e6).toFixed(2)}μT`;if(a>=1e-9)return `${(value*1e9).toFixed(2)}nT`;return value.toExponential(1);}
+
+    function drawSeries(ctx,xs,ys,ymin,ymax,m,pw,ph,color,dashed){
+      ctx.save();ctx.strokeStyle=color;ctx.lineWidth=dashed?1.7:2.3;if(dashed)ctx.setLineDash([7,5]);ctx.beginPath();let started=false;
+      for(let i=0;i<xs.length;i++){const y=ys[i];if(!Number.isFinite(y)){started=false;continue;}const px=m.left+(xs[i]-state.range.xmin)/(state.range.xmax-state.range.xmin)*pw,py=m.top+(ymax-y)/(ymax-ymin)*ph;if(!started){ctx.moveTo(px,py);started=true;}else ctx.lineTo(px,py);}
+      ctx.stroke();ctx.restore();
+    }
+
+    function drawLineWireBands(ctx,m,pw,ph){
+      ctx.save();ctx.globalAlpha=0.12;
+      for(const wire of [state.wire1,state.wire2]){const x1=m.left+(wire.xmin-state.range.xmin)/(state.range.xmax-state.range.xmin)*pw,x2=m.left+(wire.xmax-state.range.xmin)/(state.range.xmax-state.range.xmin)*pw;ctx.fillStyle=MATERIALS[wire.material].color;ctx.fillRect(x1,m.top,x2-x1,ph);}
+      ctx.restore();
+    }
+
+    function renderThinStatus(error,kmin){
+      const el=$('thinStatus');el.className='model-status';let text;
+      if(error<=1){el.classList.add('good');text='非常接近：细线近似与有限截面模型的归一化最大差异不超过 1%。';}
+      else if(error<=5){el.classList.add('warn');text='可作工程估算：两种模型的归一化最大差异位于 1%–5%。';}
+      else{el.classList.add('bad');text='不建议采用细线近似：两种模型的归一化最大差异超过 5%。';}
+      el.textContent=`${text} 当前 E = ${error.toFixed(3)}%。`;
+      // el.textContent=`${text} 当前 E = ${error.toFixed(3)}%，最小几何远场指标 K = ${kmin.toFixed(2)}。`;
+    }
+
+    function isValidCase(item) {
+      const p=item?.params;
+      return Boolean(item&&typeof item.id==='string'&&typeof item.name==='string'&&p&&
+        ['w1','t1','h1','i1','w2','t2','h2','i2','gap','dObs'].every(key=>Number.isFinite(Number(p[key])))&&
+        ['copper','gold','aluminum'].includes(p.m1)&&['copper','gold','aluminum'].includes(p.m2));
+    }
+
+    function loadComparisonCases() {
+      try {
+        const saved=JSON.parse(sessionStorage.getItem(CASES_KEY)||'[]');
+        if(!Array.isArray(saved)) return [];
+        const valid=saved.filter(isValidCase).slice(0,MAX_CASES).map(item=>({...item,visible:item.visible!==false,baseline:Boolean(item.baseline)}));
+        if(valid.length&&!valid.some(item=>item.baseline)) valid[0].baseline=true;
+        let found=false;
+        for(const item of valid){if(item.baseline&&!found)found=true;else if(item.baseline)item.baseline=false;}
+        return valid;
+      } catch { return []; }
+    }
+
+    function saveComparisonCases() { sessionStorage.setItem(CASES_KEY,JSON.stringify(comparisonCases)); }
+    function escapeHtml(value) { return String(value).replace(/[&<>'"]/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char])); }
+    function sourceText(value) { return value==='wire1'?'导线1':value==='wire2'?'导线2':'总场'; }
+    function quantityText(value) { return value==='bx'?'Bx':value==='bz'?'Bz':'|B|'; }
+
+    function switchMode(mode) {
+      const compare=mode==='compare';
+      $('singleModePanel').classList.toggle('hidden',compare);
+      $('compareModePanel').classList.toggle('hidden',!compare);
+      $('singleModeTab').setAttribute('aria-selected',String(!compare));
+      $('compareModeTab').setAttribute('aria-selected',String(compare));
+      if(compare) renderComparison();
+      else if(state) renderAll();
+    }
+
+    function addCurrentCase() {
+      try {
+        const params=captureParameterValues();
+        if(parameterSignature(params)!==lastCalculatedSignature) throw new Error('参数已改变，请先重新计算再加入对比。');
+        if(comparisonCases.length>=MAX_CASES) throw new Error(`最多保存 ${MAX_CASES} 个对比方案。`);
+        if(comparisonCases.some(item=>parameterSignature(item.params)===parameterSignature(params))) throw new Error('相同参数的方案已经存在。');
+        const first=comparisonCases.length===0;
+        comparisonCases.push({
+          id:`case-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,7)}`,
+          name:first?'基准方案':`方案 ${comparisonCases.length+1}`,
+          visible:true,baseline:first,params
+        });
+        saveComparisonCases();renderCaseManager();
+        $('formError').textContent='';
+        $('calculationStatus').textContent=`已加入“${comparisonCases.at(-1).name}”，可切换到参数对比查看。`;
+      } catch(error) { $('formError').textContent=error.message; }
+    }
+
+    function renderCaseManager() {
+      $('compareCount').textContent=`${comparisonCases.length} / ${MAX_CASES} 个方案`;
+      $('clearCasesButton').disabled=comparisonCases.length===0;
+      if(!comparisonCases.length){
+        $('caseList').innerHTML='<div class="empty-state">尚未保存对比方案。</div>';
+        return;
+      }
+      $('caseList').innerHTML=comparisonCases.map((item,index)=>{
+        const p=item.params,color=CASE_COLORS[index];
+        const summary=`w₁ ${p.w1} / w₂ ${p.w2} μm · t₁ ${p.t1} / t₂ ${p.t2} μm · g ${p.gap} μm · I₁ ${p.i1} / I₂ ${p.i2} mA · d ${p.dObs} μm`;
+        return `<article class="case-card" data-case-id="${item.id}">
+          <div class="case-card-head"><span class="case-swatch" style="background:${color}"></span><input class="case-name" maxlength="24" aria-label="方案名称" value="${escapeHtml(item.name)}"><span>${item.baseline?'基准':''}</span></div>
+          <div class="case-summary">${summary}<br>材质：${MATERIALS[p.m1].name} / ${MATERIALS[p.m2].name}</div>
+          <div class="case-actions"><label class="check-row"><input class="case-visible" type="checkbox" ${item.visible?'checked':''}>显示</label><button type="button" data-action="baseline" ${item.baseline?'disabled':''}>设为基准</button><button type="button" data-action="load">载入调参</button><button type="button" data-action="delete">删除</button></div>
+        </article>`;
+      }).join('');
+    }
+
+    function comparisonState(item) {
+      const model=stateFromParams(item.params);
+      if($('compareUnifiedHeight').checked){
+        const value=Number($('compareHeightValue').value);
+        if(!Number.isFinite(value)) throw new Error('请填写统一观察高度。');
+        if($('compareHeightMode').value==='absolute'){
+          if(value<0||value>400.4) throw new Error('绝对观察高度必须位于 0–400.4 μm。');
+          model.zObs=value;
+        } else {
+          if(value<0||value>200) throw new Error('相对观察高度必须位于 0–200 μm。');
+          model.zObs=model.wire1.zmax/UM+value;
+        }
+      }
+      return {item,model,zObs:model.zObs,dRel:model.zObs-model.wire1.zmax/UM};
+    }
+
+    function comparisonRange(entries) {
+      if($('compareCustomRange').checked){
+        const xmin=Number($('compareXmin').value),xmax=Number($('compareXmax').value);
+        if(!Number.isFinite(xmin)||!Number.isFinite(xmax)||xmin>=xmax) throw new Error('手动 X 范围必须填写完整，且最小值小于最大值。');
+        return {xmin:xmin*UM,xmax:xmax*UM};
+      }
+      let left=Infinity,right=-Infinity,vertical=0;
+      for(const {model} of entries){
+        left=Math.min(left,model.wire1.xmin,model.wire2.xmin);
+        right=Math.max(right,model.wire1.xmax,model.wire2.xmax);
+        vertical=Math.max(vertical,Math.abs(model.zObs*UM-model.wire1.zc),Math.abs(model.zObs*UM-model.wire2.zc));
+      }
+      const span=Math.max(right-left,1*UM),half=Math.max(Math.abs(left),Math.abs(right),span*0.82,vertical*0.75,2*UM);
+      return {xmin:-half,xmax:half};
+    }
+
+    function comparisonXs(range,count,entries) {
+      const xs=[];
+      for(let i=0;i<count;i++) xs.push(range.xmin+(range.xmax-range.xmin)*i/(count-1));
+      const critical=[0];
+      for(const {model} of entries) for(const wire of [model.wire1,model.wire2]) critical.push(wire.xmin,wire.xc,wire.xmax);
+      for(const x of critical) if(x>=range.xmin&&x<=range.xmax) xs.push(x);
+      xs.sort((a,b)=>a-b);
+      return xs.filter((x,index)=>index===0||Math.abs(x-xs[index-1])>1e-14);
+    }
+
+    function linePatternStyle(index) {
+      if(index===0) return 'solid';
+      if(index===2) return 'dotted';
+      return 'dashed';
+    }
+
+    function renderComparison() {
+      renderCaseManager();
+      const canvas=$('compareCanvas'),visibleItems=comparisonCases.filter(item=>item.visible);
+      $('compareError').textContent='';
+      if(!visibleItems.length){
+        canvas.classList.add('hidden');$('compareEmpty').classList.remove('hidden');
+        $('compareEmpty').textContent=comparisonCases.length?'所有方案均已隐藏，请至少勾选一个方案。':'请在“单次仿真”中完成计算，然后点击“加入对比”。';
+        $('compareLegend').innerHTML='';$('compareTableBody').innerHTML='';$('compareStatus').textContent='暂无可显示方案。';compareMeta=null;return;
+      }
+      const start=performance.now();
+      try {
+        const allEntries=comparisonCases.map(comparisonState),visibleEntries=allEntries.filter(entry=>entry.item.visible);
+        const range=comparisonRange(visibleEntries),count=$('comparePrecision').value==='high'?1001:601;
+        const xs=comparisonXs(range,count,visibleEntries),source=$('compareSource').value,quantity=$('compareQuantity').value;
+        let ymin=Infinity,ymax=-Infinity;
+        const datasets=visibleEntries.map(entry=>{
+          const ys=xs.map(x=>valueForQuantity(fieldAtState(entry.model,x,entry.zObs*UM,source),quantity));
+          let maxAbs=-1,maxX=0,centerValue=valueForQuantity(fieldAtState(entry.model,0,entry.zObs*UM,source),quantity);
+          for(let i=0;i<ys.length;i++) if(Number.isFinite(ys[i])){
+            ymin=Math.min(ymin,ys[i]);ymax=Math.max(ymax,ys[i]);
+            if(Math.abs(ys[i])>maxAbs){maxAbs=Math.abs(ys[i]);maxX=xs[i];}
+          }
+          return {...entry,ys,maxAbs:Math.max(0,maxAbs),maxX,centerValue,index:comparisonCases.indexOf(entry.item)};
+        });
+        if(quantity==='mag') ymin=0; else {ymin=Math.min(ymin,0);ymax=Math.max(ymax,0);}
+        if(!Number.isFinite(ymin)||!Number.isFinite(ymax)||ymin===ymax){ymin=quantity==='mag'?0:-1e-9;ymax=1e-9;}
+        const pad=(ymax-ymin)*0.1||1e-9;if(quantity==='mag')ymax+=pad;else{ymin-=pad;ymax+=pad;}
+        const {ctx,width,height}=canvasSetup(canvas),colors=theme(),margin={left:76,right:24,top:42,bottom:52};
+        const pw=width-margin.left-margin.right,ph=height-margin.top-margin.bottom;
+        ctx.fillStyle=colors.surface;ctx.fillRect(0,0,width,height);
+        drawComparisonAxes(ctx,width,height,margin,ymin,ymax,range,quantity,colors);
+        for(const data of datasets) drawComparisonSeries(ctx,xs,data.ys,ymin,ymax,margin,pw,ph,range,CASE_COLORS[data.index],CASE_DASHES[data.index],data.item.baseline?3:2);
+        $('compareTitle').textContent=`${sourceText(source)} ${quantityText(quantity)} 参数对比`;
+        $('compareLegend').innerHTML=datasets.map(data=>`<span class="legend-item"><span class="legend-line" style="border-top-color:${CASE_COLORS[data.index]};border-top-style:${linePatternStyle(data.index)}"></span>${escapeHtml(data.item.name)}${data.item.baseline?'（基准）':''}</span>`).join('');
+        const baselineEntry=allEntries.find(entry=>entry.item.baseline)||allEntries[0];
+        const baselineYs=xs.map(x=>valueForQuantity(fieldAtState(baselineEntry.model,x,baselineEntry.zObs*UM,source),quantity));
+        const baselineMax=Math.max(0,...baselineYs.filter(Number.isFinite).map(Math.abs));
+        $('compareTableBody').innerHTML=datasets.map(data=>{
+          const delta=data.maxAbs-baselineMax;
+          const relative=baselineMax>1e-18?(data.item.baseline?'基准':`${delta>=0?'+':''}${(delta/baselineMax*100).toFixed(2)}%`):(data.item.baseline?'基准':`Δ ${formatField(delta)}`);
+          return `<tr><td><span class="case-swatch" style="display:inline-block;background:${CASE_COLORS[data.index]}"></span> ${escapeHtml(data.item.name)}</td><td>z ${data.zObs.toFixed(4)} μm<br>d ${data.dRel.toFixed(4)} μm</td><td>${formatField(data.centerValue)}</td><td>${formatField(data.maxAbs)}</td><td>${(data.maxX/UM).toFixed(4)} μm</td><td>${relative}</td></tr>`;
+        }).join('');
+        canvas.classList.remove('hidden');$('compareEmpty').classList.add('hidden');
+        $('compareStatus').textContent=`${datasets.length} 条曲线 · 每条 ${xs.length} 个采样点 · X ${(range.xmin/UM).toFixed(2)}–${(range.xmax/UM).toFixed(2)} μm · ${(performance.now()-start).toFixed(0)} ms`;
+        compareMeta={margin,pw,width,height,range,datasets,source,quantity};
+      } catch(error){
+        $('compareError').textContent=error.message;$('compareStatus').textContent='设置有误，未执行对比。';
+      }
+    }
+
+    function drawComparisonAxes(ctx,width,height,m,ymin,ymax,range,quantity,colors){
+      ctx.save();ctx.font='12px system-ui';ctx.strokeStyle=colors.grid;ctx.fillStyle=colors.muted;ctx.lineWidth=1;
+      const xt=width<600?4:6,yt=5;
+      for(let i=0;i<=xt;i++){const px=m.left+(width-m.left-m.right)*i/xt,x=(range.xmin+(range.xmax-range.xmin)*i/xt)/UM;ctx.beginPath();ctx.moveTo(px,m.top);ctx.lineTo(px,height-m.bottom);ctx.stroke();ctx.textAlign='center';ctx.fillText(x.toFixed(Math.abs(x)<10?2:1),px,height-m.bottom+19);}
+      for(let j=0;j<=yt;j++){const py=m.top+(height-m.top-m.bottom)*j/yt,y=ymax-(ymax-ymin)*j/yt;ctx.beginPath();ctx.moveTo(m.left,py);ctx.lineTo(width-m.right,py);ctx.stroke();ctx.textAlign='right';ctx.fillText(compactField(y),m.left-8,py+4);}
+      if(ymin<0&&ymax>0){const py=m.top+ymax/(ymax-ymin)*(height-m.top-m.bottom);ctx.strokeStyle=colors.axis;ctx.beginPath();ctx.moveTo(m.left,py);ctx.lineTo(width-m.right,py);ctx.stroke();}
+      ctx.strokeStyle=colors.axis;ctx.strokeRect(m.left,m.top,width-m.left-m.right,height-m.top-m.bottom);ctx.fillStyle=colors.text;ctx.textAlign='center';ctx.fillText('X (μm)',m.left+(width-m.left-m.right)/2,height-10);ctx.save();ctx.translate(16,m.top+(height-m.top-m.bottom)/2);ctx.rotate(-Math.PI/2);ctx.fillText(`${quantityText(quantity)} (T)`,0,0);ctx.restore();ctx.restore();
+    }
+
+    function drawComparisonSeries(ctx,xs,ys,ymin,ymax,m,pw,ph,range,color,dash,width){
+      ctx.save();ctx.strokeStyle=color;ctx.lineWidth=width;ctx.setLineDash(dash);ctx.beginPath();let started=false;
+      for(let i=0;i<xs.length;i++){const y=ys[i];if(!Number.isFinite(y)){started=false;continue;}const px=m.left+(xs[i]-range.xmin)/(range.xmax-range.xmin)*pw,py=m.top+(ymax-y)/(ymax-ymin)*ph;if(!started){ctx.moveTo(px,py);started=true;}else ctx.lineTo(px,py);}
+      ctx.stroke();ctx.restore();
+    }
+
+    function updateCompareHeightControls(resetValue=false) {
+      const unified=$('compareUnifiedHeight').checked,relative=$('compareHeightMode').value==='relative';
+      $('compareHeightMode').disabled=!unified;$('compareHeightValue').disabled=!unified;
+      $('compareHeightLabel').textContent=relative?'相对导线1上表面':'绝对观察高度';
+      $('compareHeightValue').max=relative?'200':'400.4';
+      if(resetValue&&state) $('compareHeightValue').value=relative?state.dObs:state.zObs.toFixed(4);
+    }
+
+    $('singleModeTab').addEventListener('click',()=>switchMode('single'));
+    $('compareModeTab').addEventListener('click',()=>switchMode('compare'));
+    $('addComparisonButton').addEventListener('click',addCurrentCase);
+    ['w1','t1','h1','i1','m1','w2','t2','h2','i2','m2','gap','dObs'].forEach(id=>{
+      $(id).addEventListener('input',()=>{$('addComparisonButton').disabled=true;});
+      $(id).addEventListener('change',()=>{$('addComparisonButton').disabled=true;});
+    });
+    ['compareSource','compareQuantity','comparePrecision'].forEach(id=>$(id).addEventListener('change',renderComparison));
+    $('compareHeightMode').addEventListener('change',()=>{updateCompareHeightControls(true);renderComparison();});
+    $('compareHeightValue').addEventListener('input',renderComparison);
+    $('compareUnifiedHeight').addEventListener('change',()=>{updateCompareHeightControls();renderComparison();});
+    $('compareCustomRange').addEventListener('change',()=>{
+      const custom=$('compareCustomRange').checked;$('compareXmin').disabled=!custom;$('compareXmax').disabled=!custom;renderComparison();
+    });
+    ['compareXmin','compareXmax'].forEach(id=>$(id).addEventListener('input',renderComparison));
+
+    $('caseList').addEventListener('change',event=>{
+      const card=event.target.closest('[data-case-id]');if(!card)return;
+      const item=comparisonCases.find(entry=>entry.id===card.dataset.caseId);if(!item)return;
+      if(event.target.classList.contains('case-visible')) item.visible=event.target.checked;
+      if(event.target.classList.contains('case-name')) item.name=event.target.value.trim()||'未命名方案';
+      saveComparisonCases();renderComparison();
+    });
+    $('caseList').addEventListener('click',event=>{
+      const button=event.target.closest('button[data-action]'),card=event.target.closest('[data-case-id]');if(!button||!card)return;
+      const index=comparisonCases.findIndex(entry=>entry.id===card.dataset.caseId);if(index<0)return;
+      const action=button.dataset.action,item=comparisonCases[index];
+      if(action==='baseline'){comparisonCases.forEach(entry=>entry.baseline=false);item.baseline=true;}
+      else if(action==='load'){applyParamsToForm(item.params);switchMode('single');return;}
+      else if(action==='delete'){comparisonCases.splice(index,1);if(comparisonCases.length&&!comparisonCases.some(entry=>entry.baseline))comparisonCases[0].baseline=true;}
+      saveComparisonCases();renderComparison();
+    });
+    $('clearCasesButton').addEventListener('click',()=>{comparisonCases=[];saveComparisonCases();renderComparison();});
+
+    $('compareCanvas').addEventListener('pointerdown',event=>{
+      if(!compareMeta)return;const rect=event.currentTarget.getBoundingClientRect(),sx=compareMeta.width/rect.width,px=(event.clientX-rect.left)*sx,m=compareMeta.margin;
+      if(px<m.left||px>m.left+compareMeta.pw)return;
+      const x=compareMeta.range.xmin+(px-m.left)/compareMeta.pw*(compareMeta.range.xmax-compareMeta.range.xmin);
+      const values=compareMeta.datasets.map(data=>`${data.item.name} ${formatField(valueForQuantity(fieldAtState(data.model,x,data.zObs*UM,compareMeta.source),compareMeta.quantity))}`);
+      $('compareProbe').textContent=`x ${(x/UM).toFixed(4)} μm · ${values.join(' · ')}`;
+    });
+
+    renderCaseManager();
+    updateCompareHeightControls();
+
+    $('heatmapCanvas').addEventListener('pointerdown',event=>{
+      if(!state||!heatmapMeta)return;const rect=event.currentTarget.getBoundingClientRect(),sx=heatmapMeta.width/rect.width,sy=heatmapMeta.height/rect.height,px=(event.clientX-rect.left)*sx,py=(event.clientY-rect.top)*sy,m=heatmapMeta.margin;
+      if(px<m.left||px>m.left+heatmapMeta.pw||py<m.top||py>m.top+heatmapMeta.ph)return;
+      const x=state.range.xmin+(px-m.left)/heatmapMeta.pw*(state.range.xmax-state.range.xmin),z=state.range.zmax-(py-m.top)/heatmapMeta.ph*(state.range.zmax-state.range.zmin),f=fieldAt(x,z,$('sourceSelect').value);
+      $('probeReadout').textContent=`x ${(x/UM).toFixed(4)} μm · z ${(z/UM).toFixed(4)} μm · |B| ${formatField(f.mag)} · Bx ${formatField(f.bx)} · Bz ${formatField(f.bz)}`;
+    });
+
+    window.addEventListener('resize',()=>{clearTimeout(resizeTimer);resizeTimer=setTimeout(()=>{if(!$('singleModePanel').classList.contains('hidden')){if(state)renderAll();}else renderComparison();},180);});
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change',()=>{if(!$('singleModePanel').classList.contains('hidden')){if(state)renderAll();}else renderComparison();});
+  </script>
+</body>
+</html>
