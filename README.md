@@ -8,17 +8,29 @@
 
 https://leigui300421-creator.github.io/my-website/
 
+导线模型与载流能力评估器：
+
+https://leigui300421-creator.github.io/my-website/wire_model_ampacity_evaluator.html
+
 ## 文件结构
 
 ```text
 my-website/
 ├── index.html       # 网站首页和网页目录
-├── Two_wire_magnetic_field.html       # 原有双导线理论与曲线页面
+├── wire_model_ampacity_evaluator.html # 导线模型适用性与载流能力评估器
 ├── Two_wire_magnetic_simulator.html   # 矩形截面双导线交互仿真
 ├── images/          # 网页使用的图片，可选
 ├── README.md        # 项目说明
 └── .gitignore       # Git 忽略规则
 ```
+
+## 导线模型与载流能力评估
+
+`wire_model_ampacity_evaluator.html` 用于评估一根有限长度、矩形截面导线在指定观察高度下，能否近似为无限长、无限细导线。页面分别给出有限长度误差、有限截面误差和组合误差，并允许用户自定义可接受的误差阈值。
+
+评估器支持设置线长、线宽、厚度、观察高度和电流，使用有限长矩形截面的毕奥–萨伐尔数值积分作为参考磁场。页面同时比较紫铜、铝、银、金、钨、镍铬合金、康铜和 304 不锈钢等材料，并结合工程电流密度、对流和辐射散热估算直流载流上限、电阻、压降、功耗与单位长度质量。
+
+计算结果用于模型适用性判断和初步设计，不替代电气规范、产品认证或包含绝缘、端子、成束敷设及交流集肤效应的完整热设计。
 
 ## 双导线磁场仿真
 
