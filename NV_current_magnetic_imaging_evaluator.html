@@ -1,0 +1,1198 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="NV色心宽场芯片直流电流磁成像探测能力双向评估工具。">
+  <title>NV宽场芯片电流磁成像探测能力评估</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230b3b60'/%3E%3Cpath d='M12 38c9-19 16-19 25 0s16 19 15-12' fill='none' stroke='%234cc9b0' stroke-width='6' stroke-linecap='round'/%3E%3Ccircle cx='32' cy='23' r='6' fill='%23f5b942'/%3E%3C/svg%3E">
+  <script>
+    window.MathJax = {
+      tex: { inlineMath: [['\\(', '\\)']], displayMath: [['\\[', '\\]']] },
+      svg: { fontCache: 'global' }
+    };
+  </script>
+  <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: #eef4f7;
+      --surface: #ffffff;
+      --surface-2: #f4f8fa;
+      --ink: #142b3a;
+      --muted: #587080;
+      --border: #c8d8df;
+      --primary: #0b6477;
+      --primary-strong: #084b5a;
+      --accent: #e89b2c;
+      --success: #14764f;
+      --warning: #9a6700;
+      --danger: #b42318;
+      --grid: #dce7eb;
+      --shadow: 0 12px 34px rgb(26 63 82 / 9%);
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0d1820;
+        --surface: #142631;
+        --surface-2: #1b303c;
+        --ink: #edf6f7;
+        --muted: #a8bdc6;
+        --border: #38515d;
+        --primary: #62cad2;
+        --primary-strong: #8edce1;
+        --accent: #f2b95e;
+        --success: #75d7aa;
+        --warning: #f1c45f;
+        --danger: #ff9188;
+        --grid: #29414c;
+        --shadow: 0 12px 34px rgb(0 0 0 / 24%);
+      }
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+      line-height: 1.68;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 10% 0%, rgb(36 155 170 / 10%), transparent 30rem),
+        var(--bg);
+    }
+    button, input, select, textarea { font: inherit; }
+    button, select, input[type="checkbox"] { cursor: pointer; }
+    a { color: var(--primary); }
+    .hidden { display: none !important; }
+
+    .gate {
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+    }
+    .gate-card {
+      width: min(460px, 100%);
+      padding: 30px;
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+    .gate-card h1 { margin: 0 0 8px; font-size: 29px; }
+    .gate-card p { color: var(--muted); }
+
+    .page { width: min(1320px, 100%); margin: 0 auto; padding: 30px 24px 80px; }
+    .page-header {
+      padding: 24px 0 28px;
+      border-bottom: 1px solid var(--border);
+    }
+    .eyebrow {
+      margin: 0 0 8px;
+      color: var(--primary);
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+    }
+    h1, h2, h3, h4 { line-height: 1.28; }
+    h1 { margin: 0 0 12px; font-size: clamp(30px, 5vw, 48px); max-width: 1050px; }
+    h2 { margin: 46px 0 16px; font-size: clamp(24px, 4vw, 32px); }
+    h3 { margin: 0 0 10px; font-size: 20px; }
+    h4 { margin: 18px 0 8px; font-size: 16px; }
+    p { margin: 8px 0; }
+    .lede { max-width: 920px; color: var(--muted); font-size: 17px; }
+    .toc { display: flex; flex-wrap: wrap; gap: 9px 18px; margin-top: 18px; }
+    .toc a { font-weight: 650; text-decoration: none; }
+
+    .panel {
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      background: var(--surface);
+      box-shadow: 0 5px 18px rgb(26 63 82 / 5%);
+      padding: 20px;
+    }
+    .theory-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+    }
+    .theory-grid .wide { grid-column: 1 / -1; }
+    .formula {
+      margin: 14px 0;
+      overflow-x: auto;
+      padding: 12px 14px;
+      border-left: 4px solid var(--primary);
+      background: var(--surface-2);
+    }
+    .model-table, .report-table, .comparison-table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 680px;
+    }
+    th, td { padding: 10px 12px; border: 1px solid var(--border); text-align: left; vertical-align: middle; }
+    th { background: #0b5264; color: #fff; }
+    tbody tr:nth-child(even) { background: var(--surface-2); }
+    .table-wrap { overflow-x: auto; }
+    .scope-list { columns: 2; padding-left: 22px; }
+
+    .workspace-head {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 18px;
+      margin-bottom: 16px;
+    }
+    .workspace-head h2 { margin-bottom: 4px; }
+    .workspace-head p { color: var(--muted); }
+    .sim-layout {
+      display: grid;
+      grid-template-columns: minmax(310px, 390px) minmax(0, 1fr);
+      gap: 18px;
+      align-items: start;
+    }
+    .controls-panel { position: sticky; top: 14px; max-height: calc(100vh - 28px); overflow: auto; }
+    details.parameter-group { border-top: 1px solid var(--border); padding: 12px 0 2px; }
+    details.parameter-group:first-of-type { border-top: 0; padding-top: 0; }
+    summary { cursor: pointer; font-weight: 750; color: var(--primary-strong); }
+    .parameter-body { padding: 12px 0 8px; }
+    .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    .field { min-width: 0; }
+    .field label { display: block; margin-bottom: 5px; color: var(--muted); font-size: 13px; font-weight: 700; }
+    input, select, textarea {
+      width: 100%;
+      color: var(--ink);
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      background: var(--surface);
+      padding: 9px 10px;
+    }
+    textarea { min-height: 92px; resize: vertical; font-family: ui-monospace, "Cascadia Code", monospace; font-size: 13px; }
+    input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-visible, a:focus-visible {
+      outline: 3px solid rgb(31 143 158 / 35%);
+      outline-offset: 2px;
+    }
+    .input-unit { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: stretch; }
+    .input-unit input { border-radius: 9px 0 0 9px; }
+    .unit {
+      display: grid;
+      place-items: center;
+      min-width: 52px;
+      padding: 0 8px;
+      color: var(--muted);
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-left: 0;
+      border-radius: 0 9px 9px 0;
+      font-size: 12px;
+    }
+    .check-row { display: flex; align-items: center; gap: 8px; margin: 8px 0; color: var(--muted); font-size: 14px; }
+    .check-row input { width: auto; }
+    .helper { color: var(--muted); font-size: 12px; }
+    .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
+    button {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 9px 14px;
+      color: var(--ink);
+      background: var(--surface-2);
+      font-weight: 750;
+    }
+    button.primary { color: #fff; border-color: var(--primary); background: var(--primary); }
+    button.primary:hover { background: var(--primary-strong); }
+    button:disabled { cursor: not-allowed; opacity: .55; }
+    .error { min-height: 1.3em; color: var(--danger); font-size: 13px; }
+
+    .results { min-width: 0; }
+    .status-line { color: var(--muted); font-size: 13px; }
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .stat {
+      min-width: 0;
+      padding: 15px;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: var(--surface);
+    }
+    .stat.primary-stat { border-color: var(--primary); box-shadow: inset 0 3px 0 var(--primary); }
+    .stat-label { color: var(--muted); font-size: 12px; font-weight: 750; }
+    .stat-value { margin-top: 5px; font-size: clamp(19px, 2.4vw, 28px); font-weight: 800; overflow-wrap: anywhere; }
+    .stat-detail { margin-top: 4px; color: var(--muted); font-size: 12px; }
+    .verdict {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 16px;
+      padding: 16px 18px;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: var(--surface);
+    }
+    .verdict-mark { width: 13px; height: 13px; border-radius: 50%; background: var(--muted); flex: 0 0 auto; }
+    .verdict.pass .verdict-mark { background: var(--success); }
+    .verdict.fail .verdict-mark { background: var(--danger); }
+    .verdict strong { display: block; }
+    .verdict span { color: var(--muted); font-size: 13px; }
+    .chart-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+    .chart-panel { min-width: 0; }
+    .chart-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+    .chart-head h3 { margin: 0; }
+    canvas.chart { display: block; width: 100%; height: 330px; margin-top: 12px; border-radius: 10px; background: var(--surface-2); }
+    canvas.line-chart { height: 300px; }
+    .probe { margin-top: 8px; min-height: 1.5em; color: var(--muted); font-size: 12px; }
+    .report { margin-top: 18px; }
+    .report h3 { margin-top: 22px; }
+    .report h3:first-child { margin-top: 0; }
+    .report-lead { font-size: 17px; }
+    .report-list { padding-left: 22px; }
+    .tag { display: inline-block; padding: 2px 8px; border-radius: 99px; background: var(--surface-2); color: var(--muted); font-size: 12px; }
+    .case-list { display: grid; gap: 10px; }
+    .case-row { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; padding: 12px; border: 1px solid var(--border); border-radius: 10px; }
+    .case-row small { color: var(--muted); }
+
+    @media (max-width: 1050px) {
+      .sim-layout { grid-template-columns: 1fr; }
+      .controls-panel { position: static; max-height: none; }
+      .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 760px) {
+      .page { padding: 22px 14px 60px; }
+      .theory-grid, .chart-grid { grid-template-columns: 1fr; }
+      .theory-grid .wide { grid-column: auto; }
+      .scope-list { columns: 1; }
+      .workspace-head { align-items: stretch; flex-direction: column; }
+    }
+    @media (max-width: 480px) {
+      .form-grid, .stats { grid-template-columns: 1fr; }
+    }
+    @media print {
+      :root { color-scheme: light; }
+      body { background: #fff; color: #111; }
+      .gate, .toc, .controls-panel, .actions, .workspace-head .actions, #comparisonPanel { display: none !important; }
+      .page { width: 100%; padding: 0; }
+      .page-header { padding-top: 0; }
+      .sim-layout { display: block; }
+      .panel, .stat, .verdict { break-inside: avoid; box-shadow: none; }
+      canvas { max-height: 260px; }
+    }
+  </style>
+</head>
+<body>
+  <section id="accessGate" class="gate" aria-labelledby="gateTitle">
+    <form id="accessForm" class="gate-card">
+      <p class="eyebrow">Quantum sensing evaluation</p>
+      <h1 id="gateTitle">NV宽场磁成像评估</h1>
+      <!-- <p>请输入访问密码进入技术评估工具。</p> -->
+      <div class="field">
+        <label for="accessPassword">访问密码</label>
+        <input id="accessPassword" type="password" autocomplete="current-password" required>
+      </div>
+      <div class="actions"><button class="primary" type="submit">进入评估工具</button></div>
+      <p id="accessError" class="error" role="alert" aria-live="assertive"></p>
+    </form>
+  </section>
+
+  <main id="app" class="page hidden">
+    <header class="page-header">
+      <p class="eyebrow">NV wide-field current imaging</p>
+      <h1>NV宽场芯片电流磁成像探测能力评估</h1>
+      <p class="lede">面向项目指标可行性评审，以实测单像素磁灵敏度和电流几何为接口，统一评估磁场检测阈值、最大探测深度、最小电流、所需磁灵敏度、积分时间和指定线间距的横向可区分性。</p>
+      <nav class="toc" aria-label="页面目录">
+        <a href="#theory">理论分析</a>
+        <a href="#evaluator">双向指标求解</a>
+        <a href="#report">评估报告</a>
+        <a href="#comparisonPanel">方案对比</a>
+        <a href="./index.html">返回首页</a>
+      </nav>
+    </header>
+
+    <article id="theory">
+      <h2>理论分析</h2>
+      <div class="theory-grid">
+        <section class="panel">
+          <h3>1. 磁灵敏度与检测阈值</h3>
+          <p>磁灵敏度 \(\eta_B\) 是归一化系统能力指标，单位为 T·Hz<sup>−1/2</sup>。它不是固定积分时间下的最小磁场。给定有效积分时间、完整测量平均次数和处理修正系数后，单像素磁场噪声与检测阈值为：</p>
+          <div class="formula">\[\sigma_B=\frac{K_{\mathrm{proc}}\eta_B}{\sqrt{M\tau}},\qquad B_{\mathrm{th}}=q\sigma_B\]</div>
+          <p>页面把 \(\eta_B\) 作为可输入指标，并同时给出满足任务所允许的最大灵敏度数值 \(\eta_{B,\mathrm{req}}\)。数值越小，磁灵敏度越好。</p>
+        </section>
+
+        <section class="panel">
+          <h3>2. 统一电流—磁场传递系数</h3>
+          <p>直流磁场对电流保持线性。所有几何模型都可归一化为单位电流产生的最终单像素有效磁场：</p>
+          <div class="formula">\[H_I(d,\vartheta)=\frac{b_{\mathrm{pix}}(d;I,\vartheta)}{I}\]</div>
+          <p>参数 \(\vartheta\) 包含导线尺寸、回流路径、NV层、测量分量、光学PSF和像素尺寸。预测场先经过NV层厚度平均，再经过测量轴投影、光学模糊和像素面积平均。</p>
+        </section>
+
+        <section class="panel wide">
+          <h3>3. 双向指标求解</h3>
+          <p>检测临界条件统一写成 \(\mathrm{SNR}=q\)。同一物理模型既可以由系统能力预测探测结果，也可以由目标指标反推设备要求。</p>
+          <div class="formula">
+            \[
+            \mathrm{SNR}=\frac{I|H_I(d,\vartheta)|\sqrt{M\tau}}{K_{\mathrm{proc}}\eta_B}
+            \]
+            \[
+            I_{\min}=\frac{qK_{\mathrm{proc}}\eta_B}{|H_I|\sqrt{M\tau}},\quad
+            \eta_{B,\mathrm{req}}=\frac{I|H_I|\sqrt{M\tau}}{qK_{\mathrm{proc}}},\quad
+            \tau_{\min}=\frac{1}{M}\left(\frac{qK_{\mathrm{proc}}\eta_B}{I|H_I|}\right)^2
+            \]
+          </div>
+          <p>最大探测距离通过求解 \(I|H_I(d_{\max},\vartheta)|=B_{\mathrm{th}}\) 得到。若数值模型出现多个交点，取允许搜索范围内最远的满足点。</p>
+        </section>
+
+        <section class="panel">
+          <h3>4. 有限宽导线与细线近似</h3>
+          <p>长直细线中心正上方磁场为：</p>
+          <div class="formula">\[B_{\mathrm{line}}(d)=\frac{\mu_0I}{2\pi d}\]</div>
+          <p>有限宽薄金属带中心上方为：</p>
+          <div class="formula">\[B_{\mathrm{strip}}(d)=\frac{\mu_0I}{\pi w}\arctan\left(\frac{w}{2d}\right)\]</div>
+          <p>正式计算采用有限矩形截面模型；细线模型仅用于远场对照。页面同时报告几何远场比值和两种模型的实际差异。</p>
+        </section>
+
+        <section class="panel">
+          <h3>5. 代表性电流结构</h3>
+          <div class="table-wrap">
+            <table class="model-table">
+              <thead><tr><th>结构</th><th>用途</th><th>计算方式</th></tr></thead>
+              <tbody>
+                <tr><td>有限宽直导线</td><td>芯片金属互连基础结构</td><td>矩形截面解析积分</td></tr>
+                <tr><td>无限细直导线</td><td>远场快速估算</td><td>解析式</td></tr>
+                <tr><td>反向平行线对</td><td>正向与回流、横向分辨</td><td>双矩形截面矢量叠加</td></tr>
+                <tr><td>等效电流环</td><td>局部短路和局部回流</td><td>闭合线元积分</td></tr>
+                <tr><td>有限折线路径</td><td>漏电通道和局部互连</td><td>离散Biot–Savart积分</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="panel">
+          <h3>6. 指定边缘间距的横向评判</h3>
+          <p>对于两根反向电流导线，用户直接给定边缘间距 \(g\)。等宽导线时中心距为 \(s=g+w\)；不等宽时为 \(s=g+(w_1+w_2)/2\)。经过完整空间平均后的正负磁场瓣取较弱者：</p>
+          <div class="formula">\[B_{\mathrm{bi}}=\min\left(B_x^+,|B_x^-|\right),\qquad \mathrm{SNR}_{\mathrm{bi}}=\frac{B_{\mathrm{bi}}}{\sigma_B}\]</div>
+          <p>当 \(\mathrm{SNR}_{\mathrm{bi}}\ge q_B\) 时，判定该指定边缘间距下的正负磁场特征可区分。页面不搜索最小边缘间距，但可反推所需电流、灵敏度、积分时间或最大距离。</p>
+        </section>
+
+        <section class="panel">
+          <h3>7. 传感器空间平均</h3>
+          <p>总距离定义为电流层到NV敏感层中心的距离。NV层厚度围绕中心做深度平均，不重复加入总距离。横向光学PSF采用高斯模型，并与像素矩形平均共同作用于预测剖面。</p>
+          <div class="formula">\[\sigma_{\mathrm{eff}}^2=\left(\frac{\mathrm{FWHM}}{2.355}\right)^2+\frac{p^2}{12}\]</div>
+          <p>这是快速工程近似；若已知实测MTF，应以实测空间传递函数替换。</p>
+        </section>
+
+        <section class="panel wide">
+          <h3>8. 适用范围与技术边界</h3>
+          <ul class="scope-list">
+            <li>适用于直流和准静态、非磁性芯片材料。</li>
+            <li>磁灵敏度应代表最终单像素磁场结果。</li>
+            <li>复杂结构必须包含物理闭合的回流路径。</li>
+            <li>单NV轴投影不能自动等同于完整的Bx分量。</li>
+            <li>磁场可探测不等于电流层深度可唯一定位。</li>
+            <li>单测量平面对任意三维多层电流反演一般不唯一。</li>
+            <li>铁磁封装、高磁导材料和涡流屏蔽需有限元模型。</li>
+            <li>光学PSF未知或距离不确定时，结果应视为名义估算。</li>
+          </ul>
+        </section>
+      </div>
+    </article>
+
+    <section id="evaluator">
+      <div class="workspace-head">
+        <div>
+          <h2>双向指标求解</h2>
+          <p>选择结构并输入已知条件；所有指标使用同一个传递模型即时联动。</p>
+        </div>
+        <div class="actions">
+          <button id="printButton" type="button">打印评估报告</button>
+          <button id="resetButton" type="button">恢复示例参数</button>
+        </div>
+      </div>
+
+      <div class="sim-layout">
+        <form id="parameterForm" class="panel controls-panel" novalidate>
+          <details class="parameter-group" open>
+            <summary>评估目标与电流结构</summary>
+            <div class="parameter-body form-grid">
+              <div class="field" style="grid-column:1/-1"><label for="solveTarget">重点评估指标</label><select id="solveTarget">
+                <option value="overview">综合指标评估</option>
+                <option value="depth">最大可探测深度</option>
+                <option value="sensitivity">所需磁灵敏度</option>
+                <option value="current">最小所需电流</option>
+                <option value="time">最短积分时间</option>
+                <option value="resolution">指定线间距可区分性</option>
+              </select></div>
+              <div class="field" style="grid-column:1/-1"><label for="geometryType">电流结构</label><select id="geometryType">
+                <option value="strip">有限宽直导线</option>
+                <option value="line">无限细直导线</option>
+                <option value="pair">反向平行导线对</option>
+                <option value="loop">等效圆形电流环</option>
+                <option value="path">有限折线路径</option>
+              </select></div>
+              <div class="field"><label for="current">直流电流幅值</label><div class="input-unit"><input id="current" type="number" min="0.0001" step="0.1" value="1"><span class="unit">mA</span></div></div>
+              <div class="field"><label for="component">检测场量</label><select id="component">
+                <option value="mag">|B|</option><option value="bx">Bx</option><option value="by">By</option><option value="bz">Bz</option><option value="nv">NV轴投影</option>
+              </select></div>
+            </div>
+          </details>
+
+          <details class="parameter-group" open>
+            <summary>磁灵敏度与测量条件</summary>
+            <div class="parameter-body form-grid">
+              <div class="field"><label for="eta">归一化磁灵敏度</label><div class="input-unit"><input id="eta" type="number" min="0.000001" step="0.1" value="1"><span class="unit">μT/√Hz</span></div></div>
+              <div class="field"><label for="tau">有效积分时间</label><div class="input-unit"><input id="tau" type="number" min="0.001" step="10" value="100"><span class="unit">ms</span></div></div>
+              <div class="field"><label for="averages">完整结果平均次数</label><div class="input-unit"><input id="averages" type="number" min="1" step="1" value="1"><span class="unit">次</span></div></div>
+              <div class="field"><label for="snrThreshold">单像素SNR阈值</label><input id="snrThreshold" type="number" min="0.1" step="0.1" value="2"></div>
+              <div class="field"><label for="kproc">处理修正系数 Kproc</label><input id="kproc" type="number" min="0.01" step="0.1" value="1"></div>
+              <div class="field"><label for="pairThreshold">线对双极SNR阈值</label><input id="pairThreshold" type="number" min="0.1" step="0.1" value="2"></div>
+            </div>
+          </details>
+
+          <details class="parameter-group" open>
+            <summary>距离与传感器</summary>
+            <div class="parameter-body">
+              <div class="form-grid">
+                <div class="field" style="grid-column:1/-1"><label for="distanceMode">距离输入方式</label><select id="distanceMode"><option value="direct">直接输入总距离</option><option value="split">芯片埋深＋固定距离</option></select></div>
+                <div class="field direct-distance"><label for="totalDistance">电流层至NV层中心</label><div class="input-unit"><input id="totalDistance" type="number" min="0.05" step="1" value="20"><span class="unit">μm</span></div></div>
+                <div class="field split-distance hidden"><label for="chipDepth">芯片内埋深</label><div class="input-unit"><input id="chipDepth" type="number" min="0" step="1" value="10"><span class="unit">μm</span></div></div>
+                <div class="field"><label for="fixedDistance">芯片表面至NV层中心</label><div class="input-unit"><input id="fixedDistance" type="number" min="0" step="1" value="10"><span class="unit">μm</span></div></div>
+                <div class="field"><label for="maxSearchDepth">最大搜索总距离</label><div class="input-unit"><input id="maxSearchDepth" type="number" min="1" step="50" value="500"><span class="unit">μm</span></div></div>
+                <div class="field"><label for="nvThickness">NV层厚度</label><div class="input-unit"><input id="nvThickness" type="number" min="0" step="0.1" value="1"><span class="unit">μm</span></div></div>
+                <div class="field"><label for="pixelSize">样品面像素尺寸</label><div class="input-unit"><input id="pixelSize" type="number" min="0.01" step="0.1" value="1.58"><span class="unit">μm</span></div></div>
+                <div class="field"><label for="psfFwhm">光学PSF FWHM</label><div class="input-unit"><input id="psfFwhm" type="number" min="0" step="0.1" value="1"><span class="unit">μm</span></div></div>
+                <div class="field"><label for="nvTheta">NV轴极角 θ</label><div class="input-unit"><input id="nvTheta" type="number" min="0" max="180" step="1" value="54.7"><span class="unit">°</span></div></div>
+                <div class="field"><label for="nvPhi">NV轴方位角 φ</label><div class="input-unit"><input id="nvPhi" type="number" min="-180" max="180" step="1" value="0"><span class="unit">°</span></div></div>
+              </div>
+              <p class="helper">总距离以NV层中心为基准；NV层厚度不会再次叠加到距离中。</p>
+            </div>
+          </details>
+
+          <details class="parameter-group geometry-fields" data-geometry="strip line pair" open>
+            <summary>直导线几何</summary>
+            <div class="parameter-body form-grid">
+              <div class="field"><label for="width1">导线1宽度</label><div class="input-unit"><input id="width1" type="number" min="0.01" step="0.5" value="10"><span class="unit">μm</span></div></div>
+              <div class="field"><label for="thickness1">导线1厚度</label><div class="input-unit"><input id="thickness1" type="number" min="0.001" step="0.05" value="0.2"><span class="unit">μm</span></div></div>
+              <div class="field pair-only hidden"><label for="width2">导线2宽度</label><div class="input-unit"><input id="width2" type="number" min="0.01" step="0.5" value="10"><span class="unit">μm</span></div></div>
+              <div class="field pair-only hidden"><label for="thickness2">导线2厚度</label><div class="input-unit"><input id="thickness2" type="number" min="0.001" step="0.05" value="0.2"><span class="unit">μm</span></div></div>
+              <div class="field pair-only hidden"><label for="edgeGap">两导线边缘间距</label><div class="input-unit"><input id="edgeGap" type="number" min="0" step="0.5" value="10"><span class="unit">μm</span></div></div>
+            </div>
+          </details>
+
+          <details class="parameter-group geometry-fields hidden" data-geometry="loop">
+            <summary>等效电流环几何</summary>
+            <div class="parameter-body form-grid">
+              <div class="field"><label for="loopRadius">电流环等效半径</label><div class="input-unit"><input id="loopRadius" type="number" min="0.1" step="1" value="10"><span class="unit">μm</span></div></div>
+              <div class="field"><label for="loopSegments">离散线元数</label><input id="loopSegments" type="number" min="48" max="360" step="12" value="144"></div>
+            </div>
+          </details>
+
+          <details class="parameter-group geometry-fields hidden" data-geometry="path">
+            <summary>有限折线路径</summary>
+            <div class="parameter-body">
+              <div class="field"><label for="pathPoints">路径点 x,y（μm；每行一个）</label><textarea id="pathPoints">-20,-12
+20,-12
+20,12
+-20,12</textarea></div>
+              <label class="check-row"><input id="closePath" type="checkbox" checked>自动闭合回流路径</label>
+              <p class="helper">示例为40 μm × 24 μm闭合矩形。开放电流路径不满足稳恒电流连续性。</p>
+            </div>
+          </details>
+
+          <div class="actions">
+            <button class="primary" type="submit">计算全部指标</button>
+            <button id="addCaseButton" type="button" disabled>加入方案对比</button>
+          </div>
+          <p id="formError" class="error" role="alert" aria-live="assertive"></p>
+        </form>
+
+        <div class="results">
+          <p id="calculationStatus" class="status-line" aria-live="polite">等待计算。</p>
+          <div id="verdict" class="verdict">
+            <span class="verdict-mark" aria-hidden="true"></span>
+            <div><strong id="verdictTitle">尚未计算</strong><span id="verdictDetail">填写参数后执行综合评估。</span></div>
+          </div>
+
+          <div class="stats" aria-label="关键指标">
+            <div class="stat" data-target="overview"><div class="stat-label">当前有效磁场信号</div><div id="signalValue" class="stat-value">—</div><div id="signalDetail" class="stat-detail">—</div></div>
+            <div class="stat" data-target="overview"><div class="stat-label">磁场检测阈值</div><div id="thresholdValue" class="stat-value">—</div><div id="noiseValue" class="stat-detail">—</div></div>
+            <div class="stat" data-target="depth"><div class="stat-label">最大总探测距离</div><div id="maxDepthValue" class="stat-value">—</div><div id="burialDepthValue" class="stat-detail">—</div></div>
+            <div class="stat" data-target="sensitivity"><div class="stat-label">允许的最大磁灵敏度数值</div><div id="requiredEtaValue" class="stat-value">—</div><div id="etaMarginValue" class="stat-detail">—</div></div>
+            <div class="stat" data-target="current"><div class="stat-label">最小所需电流</div><div id="minCurrentValue" class="stat-value">—</div><div id="currentMarginValue" class="stat-detail">—</div></div>
+            <div class="stat" data-target="time"><div class="stat-label">最短有效积分时间</div><div id="minTimeValue" class="stat-value">—</div><div id="timeMarginValue" class="stat-detail">—</div></div>
+            <div class="stat" data-target="resolution"><div class="stat-label">当前SNR</div><div id="snrValue" class="stat-value">—</div><div id="snrMarginValue" class="stat-detail">—</div></div>
+            <div class="stat" data-target="overview"><div class="stat-label">细线近似评估</div><div id="lineApproxValue" class="stat-value">—</div><div id="lineApproxDetail" class="stat-detail">—</div></div>
+          </div>
+
+          <div class="chart-grid">
+            <section class="panel chart-panel">
+              <div class="chart-head"><h3 id="fieldMapTitle">磁场空间分布</h3><span id="fieldMapMeta" class="status-line"></span></div>
+              <canvas id="fieldMapCanvas" class="chart" role="img" aria-label="磁场空间分布图"></canvas>
+              <p id="fieldProbe" class="probe">点击图像读取位置与磁场值。</p>
+            </section>
+            <section class="panel chart-panel">
+              <div class="chart-head"><h3>最终磁场剖面</h3><span id="profileMeta" class="status-line"></span></div>
+              <canvas id="profileCanvas" class="chart line-chart" role="img" aria-label="经过空间平均后的磁场剖面"></canvas>
+              <p id="profileProbe" class="probe">曲线已包含NV层、光学PSF和像素平均。</p>
+            </section>
+            <section class="panel chart-panel">
+              <div class="chart-head"><h3>SNR随探测距离变化</h3><span id="depthMeta" class="status-line"></span></div>
+              <canvas id="depthCanvas" class="chart line-chart" role="img" aria-label="SNR随探测距离变化曲线"></canvas>
+              <p class="probe">水平虚线为当前检测判据。</p>
+            </section>
+            <section class="panel chart-panel">
+              <div class="chart-head"><h3>电流—深度可探测区域</h3><span class="status-line">颜色表示SNR/q</span></div>
+              <canvas id="detectabilityCanvas" class="chart" role="img" aria-label="电流与深度可探测区域图"></canvas>
+              <p class="probe">等值线1表示刚好达到设定SNR。</p>
+            </section>
+          </div>
+
+          <section id="report" class="panel report">
+            <div class="chart-head"><h3>自动评估报告</h3><span id="reportTimestamp" class="tag">尚未生成</span></div>
+            <div id="reportContent"><p>执行计算后，这里将生成包含条件、结论、指标反推、模型适用性和风险提示的完整报告。</p></div>
+          </section>
+
+          <section id="comparisonPanel" class="panel report">
+            <div class="chart-head"><h3>方案对比</h3><div class="actions"><span id="caseCount" class="tag">0 / 5</span><button id="clearCasesButton" type="button">清空</button></div></div>
+            <div id="caseList" class="case-list"><p class="status-line">计算后可将当前方案加入对比。</p></div>
+            <div class="table-wrap" style="margin-top:14px">
+              <table class="comparison-table">
+                <thead><tr><th>方案</th><th>结构</th><th>电流</th><th>总距离</th><th>信号</th><th>SNR</th><th>最大距离</th><th>判定</th></tr></thead>
+                <tbody id="comparisonBody"><tr><td colspan="8">暂无方案</td></tr></tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    'use strict';
+
+    const ACCESS_HASH = '8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92';
+    const SESSION_KEY = 'nv-current-capability-access';
+    const CASES_KEY = 'nv-current-capability-cases';
+    const MU0 = 4 * Math.PI * 1e-7;
+    const UM = 1e-6;
+    const MA = 1e-3;
+    const MAX_CASES = 5;
+    const $ = id => document.getElementById(id);
+    let state = null;
+    let mapMeta = null;
+    let profileMeta = null;
+    let comparisonCases = loadCases();
+    let resizeTimer = null;
+
+    async function sha256(text) {
+      const data = new TextEncoder().encode(text);
+      const hash = await crypto.subtle.digest('SHA-256', data);
+      return Array.from(new Uint8Array(hash)).map(v => v.toString(16).padStart(2, '0')).join('');
+    }
+
+    function unlock() {
+      $('accessGate').classList.add('hidden');
+      $('app').classList.remove('hidden');
+      requestAnimationFrame(calculate);
+    }
+
+    $('accessForm').addEventListener('submit', async event => {
+      event.preventDefault();
+      if (await sha256($('accessPassword').value) === ACCESS_HASH) {
+        sessionStorage.setItem(SESSION_KEY, '1');
+        $('accessError').textContent = '';
+        unlock();
+      } else {
+        $('accessError').textContent = '密码不正确。';
+      }
+    });
+    if (sessionStorage.getItem(SESSION_KEY) === '1') unlock();
+
+    function number(id) { return Number($(id).value); }
+    function clamp(value, min, max) { return Math.max(min, Math.min(max, value)); }
+    function lerp(a, b, t) { return a + (b - a) * t; }
+    function hypot3(x, y, z) { return Math.sqrt(x*x + y*y + z*z); }
+    function cross(ax, ay, az, bx, by, bz) { return { x: ay*bz-az*by, y: az*bx-ax*bz, z: ax*by-ay*bx }; }
+
+    function readInputs() {
+      const ids = ['current','eta','tau','averages','snrThreshold','kproc','pairThreshold','totalDistance','chipDepth','fixedDistance','maxSearchDepth','nvThickness','pixelSize','psfFwhm','nvTheta','nvPhi','width1','thickness1','width2','thickness2','edgeGap','loopRadius','loopSegments'];
+      for (const id of ids) if (!Number.isFinite(number(id))) throw new Error(`请检查参数：${$(id).previousElementSibling?.textContent || id}。`);
+      const geometry = $('geometryType').value;
+      const selectedComponent = $('component').value;
+      const component = geometry === 'pair' && selectedComponent !== 'nv' ? 'bx' : selectedComponent;
+      const current = number('current') * MA;
+      const distance = $('distanceMode').value === 'direct' ? number('totalDistance') * UM : (number('chipDepth') + number('fixedDistance')) * UM;
+      if (current <= 0) throw new Error('电流必须大于0。');
+      if (distance <= 0) throw new Error('总距离必须大于0。');
+      if (number('eta') <= 0 || number('tau') <= 0 || number('averages') < 1 || number('snrThreshold') <= 0 || number('kproc') <= 0) throw new Error('灵敏度、时间、平均次数、SNR阈值和处理系数必须为正数。');
+      if (number('pixelSize') <= 0 || number('maxSearchDepth') <= 0) throw new Error('像素尺寸和最大搜索距离必须为正数。');
+      const theta = number('nvTheta') * Math.PI / 180;
+      const phi = number('nvPhi') * Math.PI / 180;
+      const path = geometry === 'path' ? parsePath($('pathPoints').value, $('closePath').checked) : [];
+      if (['strip','pair'].includes(geometry) && (number('width1') <= 0 || number('thickness1') <= 0)) throw new Error('导线1的宽度和厚度必须大于0。');
+      if (geometry === 'pair' && (number('width2') <= 0 || number('thickness2') <= 0 || number('edgeGap') < 0)) throw new Error('导线2尺寸必须大于0，边缘间距不能为负。');
+      if (geometry === 'loop' && number('loopRadius') <= 0) throw new Error('等效电流环半径必须大于0。');
+      const sourceHalfThickness = geometry === 'strip' ? number('thickness1')*UM/2 : geometry === 'pair' ? Math.max(number('thickness1'),number('thickness2'))*UM/2 : 0;
+      if (distance <= sourceHalfThickness + Math.max(0,number('nvThickness'))*UM/2) throw new Error('总距离过小，NV敏感层与载流结构发生几何重叠。');
+      if (number('maxSearchDepth')*UM <= sourceHalfThickness + Math.max(0,number('nvThickness'))*UM/2) throw new Error('最大搜索总距离必须大于载流结构与NV层的最小无重叠距离。');
+      return {
+        target: $('solveTarget').value,
+        geometry,
+        component,
+        current,
+        eta: number('eta') * 1e-6,
+        tau: number('tau') * 1e-3,
+        averages: Math.max(1, Math.round(number('averages'))),
+        q: number('snrThreshold'),
+        qPair: number('pairThreshold'),
+        kproc: number('kproc'),
+        distance,
+        fixedDistance: number('fixedDistance') * UM,
+        maxSearchDepth: number('maxSearchDepth') * UM,
+        nvThickness: Math.max(0, number('nvThickness') * UM),
+        pixel: number('pixelSize') * UM,
+        psf: Math.max(0, number('psfFwhm') * UM),
+        nvAxis: { x: Math.sin(theta)*Math.cos(phi), y: Math.sin(theta)*Math.sin(phi), z: Math.cos(theta) },
+        width1: number('width1') * UM,
+        thickness1: number('thickness1') * UM,
+        width2: number('width2') * UM,
+        thickness2: number('thickness2') * UM,
+        gap: number('edgeGap') * UM,
+        loopRadius: number('loopRadius') * UM,
+        loopSegments: clamp(Math.round(number('loopSegments')), 48, 360),
+        path
+      };
+    }
+
+    function parsePath(text, close) {
+      const pts = text.trim().split(/\n+/).map((line, index) => {
+        const values = line.split(/[，,\s]+/).filter(Boolean).map(Number);
+        if (values.length !== 2 || values.some(v => !Number.isFinite(v))) throw new Error(`折线路径第${index+1}行格式不正确，应为 x,y。`);
+        return { x: values[0]*UM, y: values[1]*UM, z: 0 };
+      });
+      if (pts.length < 2) throw new Error('有限折线路径至少需要两个点。');
+      if (close && (pts[0].x !== pts.at(-1).x || pts[0].y !== pts.at(-1).y)) pts.push({ ...pts[0] });
+      return pts;
+    }
+
+    function updateVisibility() {
+      if ($('solveTarget').value === 'resolution') $('geometryType').value = 'pair';
+      const geometry = $('geometryType').value;
+      document.querySelectorAll('.geometry-fields').forEach(el => {
+        const allowed = el.dataset.geometry.split(' ');
+        el.classList.toggle('hidden', !allowed.includes(geometry));
+      });
+      document.querySelectorAll('.pair-only').forEach(el => el.classList.toggle('hidden', geometry !== 'pair'));
+      document.querySelectorAll('.direct-distance').forEach(el => el.classList.toggle('hidden', $('distanceMode').value !== 'direct'));
+      document.querySelectorAll('.split-distance').forEach(el => el.classList.toggle('hidden', $('distanceMode').value !== 'split'));
+      if (geometry === 'pair' && $('component').value !== 'nv') $('component').value = 'bx';
+      document.querySelectorAll('.stat').forEach(el => el.classList.toggle('primary-stat', $('solveTarget').value === el.dataset.target));
+    }
+
+    function primitive(q, s) {
+      const r2 = q*q + s*s;
+      if (r2 < 1e-40) return 0;
+      const angleTerm = Math.abs(s) < 1e-30 ? 0 : 2*s*Math.atan(q/s);
+      return q*Math.log(r2) - 2*q + angleTerm;
+    }
+
+    function rectangleField(x, z, xmin, xmax, zmin, zmax, current) {
+      if (!current) return { x:0, y:0, z:0 };
+      const ua=x-xmin, ub=x-xmax, vc=z-zmin, vd=z-zmax;
+      const intBx=0.5*(primitive(ua,vc)-primitive(ub,vc)-primitive(ua,vd)+primitive(ub,vd));
+      const intUx=0.5*(primitive(vc,ua)-primitive(vd,ua)-primitive(vc,ub)+primitive(vd,ub));
+      const factor=MU0*(current/((xmax-xmin)*(zmax-zmin)))/(2*Math.PI);
+      return { x:factor*intBx, y:0, z:-factor*intUx };
+    }
+
+    function thinWireField(x, z, xc, zc, current) {
+      const dx=x-xc, dz=z-zc, r2=dx*dx+dz*dz;
+      if (r2 < 1e-30 || !current) return { x:0, y:0, z:0 };
+      const factor=MU0*current/(2*Math.PI*r2);
+      return { x:factor*dz, y:0, z:-factor*dx };
+    }
+
+    function addField(a,b) { return { x:a.x+b.x, y:a.y+b.y, z:a.z+b.z }; }
+
+    function segmentField(point, a, b, current) {
+      const length = hypot3(b.x-a.x,b.y-a.y,b.z-a.z);
+      const step = Math.max(0.5*UM, Math.min(2*UM, point.z/2));
+      const count = clamp(Math.ceil(length/step), 1, 100);
+      let out={x:0,y:0,z:0};
+      for (let i=0;i<count;i++) {
+        const t=(i+0.5)/count;
+        const mx=lerp(a.x,b.x,t), my=lerp(a.y,b.y,t), mz=lerp(a.z,b.z,t);
+        const dlx=(b.x-a.x)/count, dly=(b.y-a.y)/count, dlz=(b.z-a.z)/count;
+        const rx=point.x-mx, ry=point.y-my, rz=point.z-mz;
+        const r=hypot3(rx,ry,rz);
+        if (r < 1e-15) continue;
+        const c=cross(dlx,dly,dlz,rx,ry,rz);
+        const factor=MU0*current/(4*Math.PI*r*r*r);
+        out.x+=factor*c.x; out.y+=factor*c.y; out.z+=factor*c.z;
+      }
+      return out;
+    }
+
+    function loopPoints(s) {
+      const pts=[];
+      for(let i=0;i<=s.loopSegments;i++) {
+        const a=2*Math.PI*i/s.loopSegments;
+        pts.push({x:s.loopRadius*Math.cos(a),y:s.loopRadius*Math.sin(a),z:0});
+      }
+      return pts;
+    }
+
+    function pathField(point, points, current) {
+      let out={x:0,y:0,z:0};
+      for(let i=0;i<points.length-1;i++) out=addField(out,segmentField(point,points[i],points[i+1],current));
+      return out;
+    }
+
+    function rawFieldAt(s, x, y, z, current=s.current) {
+      if (s.geometry === 'line') return thinWireField(x,z,0,0,current);
+      if (s.geometry === 'strip') return rectangleField(x,z,-s.width1/2,s.width1/2,-s.thickness1/2,s.thickness1/2,current);
+      if (s.geometry === 'pair') {
+        const c1=-(s.gap/2+s.width1/2), c2=s.gap/2+s.width2/2;
+        const f1=rectangleField(x,z,c1-s.width1/2,c1+s.width1/2,-s.thickness1/2,s.thickness1/2,current);
+        const f2=rectangleField(x,z,c2-s.width2/2,c2+s.width2/2,-s.thickness2/2,s.thickness2/2,-current);
+        return addField(f1,f2);
+      }
+      if (s.geometry === 'loop') {
+        if (!s._loopCache) s._loopCache=loopPoints(s);
+        return pathField({x,y,z},s._loopCache,current);
+      }
+      return pathField({x,y,z},s.path,current);
+    }
+
+    function fieldValue(s, field, component=s.component) {
+      if (component === 'bx') return field.x;
+      if (component === 'by') return field.y;
+      if (component === 'bz') return field.z;
+      if (component === 'nv') return field.x*s.nvAxis.x+field.y*s.nvAxis.y+field.z*s.nvAxis.z;
+      return hypot3(field.x,field.y,field.z);
+    }
+
+    function geometryScale(s) {
+      if (s.geometry === 'pair') return Math.max(s.width1+s.width2+s.gap, s.distance);
+      if (s.geometry === 'loop') return Math.max(2*s.loopRadius,s.distance);
+      if (s.geometry === 'path') {
+        const xs=s.path.map(p=>p.x), ys=s.path.map(p=>p.y);
+        return Math.max(Math.max(...xs)-Math.min(...xs),Math.max(...ys)-Math.min(...ys),s.distance);
+      }
+      return Math.max(s.width1,s.distance);
+    }
+
+    function rawProfile(s, distance, current, count=181) {
+      const span=Math.max(5*s.pixel,3.2*geometryScale({...s,distance}),12*UM);
+      const xs=[], values=[];
+      const zSamples=s.nvThickness>0?(count>=160?7:3):1;
+      for(let i=0;i<count;i++) {
+        const x=-span/2+span*i/(count-1);
+        let sum=0;
+        for(let k=0;k<zSamples;k++) {
+          const offset=zSamples===1?0:((k+0.5)/zSamples-0.5)*s.nvThickness;
+          const z=Math.max(0.002*UM,distance+offset);
+          const field=rawFieldAt(s,x,0,z,current);
+          const component=s.geometry==='pair' ? (s.component==='nv'?'nv':'bx') : s.component;
+          sum+=fieldValue(s,field,component);
+        }
+        xs.push(x); values.push(sum/zSamples);
+      }
+      return {xs,values};
+    }
+
+    function smoothProfile(s, profile) {
+      const sigma=Math.sqrt(Math.pow(s.psf/2.355,2)+s.pixel*s.pixel/12);
+      if (sigma <= 0) return profile;
+      const dx=profile.xs[1]-profile.xs[0];
+      const radius=clamp(Math.ceil(4*sigma/dx),1,50);
+      const out=new Array(profile.values.length);
+      for(let i=0;i<profile.values.length;i++) {
+        let sum=0, weight=0;
+        for(let j=-radius;j<=radius;j++) {
+          const index=clamp(i+j,0,profile.values.length-1);
+          const w=Math.exp(-0.5*Math.pow(j*dx/sigma,2));
+          sum+=profile.values[index]*w; weight+=w;
+        }
+        out[i]=sum/weight;
+      }
+      return {xs:profile.xs,values:out};
+    }
+
+    function profileFor(s, distance=s.distance, current=s.current, count=181) {
+      return smoothProfile(s,rawProfile(s,distance,current,count));
+    }
+
+    function metricFromProfile(s, profile) {
+      if (s.geometry === 'pair') {
+        const positive=Math.max(...profile.values), negative=Math.min(...profile.values);
+        return { value:Math.max(0,Math.min(Math.max(0,positive),Math.max(0,-negative))), positive, negative, mode:'bipolar' };
+      }
+      let value=0,index=0;
+      profile.values.forEach((v,i)=>{if(Math.abs(v)>value){value=Math.abs(v);index=i;}});
+      return {value, index, mode:'peak'};
+    }
+
+    function transferAt(s, distance=s.distance, count=121) {
+      const profile=profileFor(s,distance,1,count);
+      return metricFromProfile(s,profile).value;
+    }
+
+    function noiseFor(s) { return s.kproc*s.eta/Math.sqrt(s.averages*s.tau); }
+    function thresholdFor(s) { return (s.geometry==='pair' ? s.qPair : s.q)*noiseFor(s); }
+
+    function minimumDistance(s) {
+      const sourceHalf=s.geometry==='strip'?s.thickness1/2:s.geometry==='pair'?Math.max(s.thickness1,s.thickness2)/2:0;
+      return Math.max(0.05*UM,sourceHalf+s.nvThickness/2+0.002*UM);
+    }
+
+    function maxDetectableDistance(s, threshold) {
+      const minDistance=minimumDistance(s);
+      const maxDistance=Math.max(minDistance*1.01,s.maxSearchDepth);
+      const steps=72;
+      const samples=[];
+      for(let i=0;i<=steps;i++) {
+        const t=i/steps;
+        const d=minDistance*Math.pow(maxDistance/minDistance,t);
+        const signal=s.current*transferAt(s,d,81);
+        samples.push({d,f:signal-threshold,signal});
+      }
+      let lastIndex=-1;
+      samples.forEach((v,i)=>{if(v.f>=0)lastIndex=i;});
+      if(lastIndex<0)return {value:null,status:'none'};
+      if(lastIndex===samples.length-1)return {value:maxDistance,status:'beyond'};
+      let lo=samples[lastIndex].d, hi=samples[lastIndex+1].d;
+      for(let i=0;i<28;i++) {
+        const mid=(lo+hi)/2;
+        if(s.current*transferAt(s,mid,101)>=threshold)lo=mid;else hi=mid;
+      }
+      return {value:(lo+hi)/2,status:'found'};
+    }
+
+    function evaluate(s) {
+      const profile=profileFor(s,s.distance,s.current,241);
+      const metric=metricFromProfile(s,profile);
+      const H=metric.value/s.current;
+      const noise=noiseFor(s);
+      const qUsed=s.geometry==='pair'?s.qPair:s.q;
+      const threshold=qUsed*noise;
+      const snr=noise>0?metric.value/noise:Infinity;
+      const requiredEta=metric.value*Math.sqrt(s.averages*s.tau)/(qUsed*s.kproc);
+      const minCurrent=H>0?threshold/H:Infinity;
+      const minTime=H>0?Math.pow(qUsed*s.kproc*s.eta/(s.current*H),2)/s.averages:Infinity;
+      const maxDepth=maxDetectableDistance(s,threshold);
+      return {profile,metric,H,noise,threshold,snr,requiredEta,minCurrent,minTime,maxDepth,qUsed,pass:snr>=qUsed};
+    }
+
+    function calculate() {
+      const start=performance.now();
+      try {
+        updateVisibility();
+        state=readInputs();
+        const result=evaluate(state);
+        state.result=result;
+        renderSummary(state,result);
+        renderCharts(state,result);
+        renderReport(state,result);
+        $('formError').textContent='';
+        $('addCaseButton').disabled=false;
+        $('calculationStatus').textContent=`计算完成 · ${geometryName(state.geometry)} · ${(performance.now()-start).toFixed(0)} ms`;
+      } catch(error) {
+        $('formError').textContent=error.message;
+        $('calculationStatus').textContent='参数有误，未执行计算。';
+        $('addCaseButton').disabled=true;
+      }
+    }
+
+    function geometryName(value) {
+      return {strip:'有限宽直导线',line:'无限细直导线',pair:'反向平行导线对',loop:'等效电流环',path:'有限折线路径'}[value];
+    }
+    function componentName(value) { return {mag:'|B|',bx:'Bx',by:'By',bz:'Bz',nv:'NV轴投影'}[value]; }
+    function formatField(value) {
+      if(!Number.isFinite(value))return '—';
+      const a=Math.abs(value);
+      if(a>=1)return `${value.toFixed(4)} T`;
+      if(a>=1e-3)return `${(value*1e3).toFixed(4)} mT`;
+      if(a>=1e-6)return `${(value*1e6).toFixed(4)} μT`;
+      if(a>=1e-9)return `${(value*1e9).toFixed(4)} nT`;
+      if(a>=1e-12)return `${(value*1e12).toFixed(4)} pT`;
+      return `${value.toExponential(3)} T`;
+    }
+    function formatLength(value) {
+      if(value==null||!Number.isFinite(value))return '—';
+      if(Math.abs(value)>=1e-3)return `${(value*1e3).toFixed(3)} mm`;
+      if(Math.abs(value)>=1e-6)return `${(value/UM).toFixed(3)} μm`;
+      return `${(value*1e9).toFixed(3)} nm`;
+    }
+    function formatCurrent(value) {
+      if(!Number.isFinite(value))return '—';
+      if(value>=1)return `${value.toFixed(3)} A`;
+      if(value>=1e-3)return `${(value/MA).toFixed(4)} mA`;
+      return `${(value*1e6).toFixed(4)} μA`;
+    }
+    function formatEta(value) {
+      if(!Number.isFinite(value))return '—';
+      const micro=value*1e6;
+      if(micro>=1)return `${micro.toFixed(4)} μT/√Hz`;
+      return `${(value*1e9).toFixed(4)} nT/√Hz`;
+    }
+    function formatTime(value) {
+      if(!Number.isFinite(value))return '—';
+      if(value>=1)return `${value.toFixed(3)} s`;
+      return `${(value*1e3).toFixed(3)} ms`;
+    }
+
+    function lineApproximation(s) {
+      if(!['strip','line','pair'].includes(s.geometry))return null;
+      const a=0.5*Math.sqrt(s.width1*s.width1+s.thickness1*s.thickness1);
+      const K=s.distance/Math.max(a,1e-15);
+      if(s.geometry==='line')return {K,error:0,label:'细线模型'};
+      const rect=Math.abs(fieldValue(s,rectangleField(0,s.distance,-s.width1/2,s.width1/2,-s.thickness1/2,s.thickness1/2,s.current),'mag'));
+      const thin=Math.abs(fieldValue(s,thinWireField(0,s.distance,0,0,s.current),'mag'));
+      const error=rect>0?Math.abs(thin-rect)/rect:0;
+      return {K,error,label:K>=10?'远场近似较合适':K<5?'近场，应保留有限截面':'过渡区'};
+    }
+
+    function renderSummary(s,r) {
+      $('signalValue').textContent=formatField(r.metric.value);
+      $('signalDetail').textContent=r.metric.mode==='bipolar'?`正瓣 ${formatField(r.metric.positive)} · 负瓣 ${formatField(r.metric.negative)}`:`${componentName(s.component)}绝对峰值`;
+      $('thresholdValue').textContent=formatField(r.threshold);
+      $('noiseValue').textContent=`单像素噪声 σB = ${formatField(r.noise)}`;
+      $('maxDepthValue').textContent=r.maxDepth.status==='beyond'?`> ${formatLength(r.maxDepth.value)}`:formatLength(r.maxDepth.value);
+      const burial=r.maxDepth.value==null?null:r.maxDepth.value-s.fixedDistance;
+      $('burialDepthValue').textContent=burial==null?'允许范围内无可探测交点':`对应最大芯片埋深 ${formatLength(burial)}`;
+      $('requiredEtaValue').textContent=formatEta(r.requiredEta);
+      $('etaMarginValue').textContent=`要求上限/实际值 ${(r.requiredEta/s.eta).toFixed(3)}×（≥1满足）`;
+      $('minCurrentValue').textContent=formatCurrent(r.minCurrent);
+      $('currentMarginValue').textContent=`实际/最低电流 ${(s.current/r.minCurrent).toFixed(3)}×`;
+      $('minTimeValue').textContent=formatTime(r.minTime);
+      $('timeMarginValue').textContent=`当前有效积分 ${formatTime(s.tau)}`;
+      $('snrValue').textContent=r.snr.toFixed(3);
+      $('snrMarginValue').textContent=`判据 ${r.qUsed.toFixed(2)} · 裕量 ${(r.snr/r.qUsed).toFixed(3)}×`;
+      const approx=lineApproximation(s);
+      $('lineApproxValue').textContent=approx?`${(approx.error*100).toFixed(2)}%`:'不适用';
+      $('lineApproxDetail').textContent=approx?`K=${approx.K.toFixed(2)} · ${approx.label}`:'闭合路径采用线元积分';
+      const verdict=$('verdict');
+      verdict.className=`verdict ${r.pass?'pass':'fail'}`;
+      $('verdictTitle').textContent=r.pass?'当前指标组合满足检测判据':'当前指标组合不满足检测判据';
+      $('verdictDetail').textContent=s.geometry==='pair'
+        ?`指定边缘间距 ${formatLength(s.gap)} 的双极磁场SNR为 ${r.snr.toFixed(3)}，要求不低于 ${r.qUsed.toFixed(2)}。`
+        :`${componentName(s.component)}有效信号为 ${formatField(r.metric.value)}，检测阈值为 ${formatField(r.threshold)}。`;
+    }
+
+    function canvasSetup(canvas) {
+      const dpr=Math.min(window.devicePixelRatio||1,2);
+      const rect=canvas.getBoundingClientRect();
+      const width=Math.max(320,Math.round(rect.width));
+      const height=Math.max(260,Math.round(rect.height));
+      canvas.width=Math.round(width*dpr);canvas.height=Math.round(height*dpr);
+      const ctx=canvas.getContext('2d');ctx.setTransform(dpr,0,0,dpr,0,0);
+      return {ctx,width,height};
+    }
+    function theme() {
+      const s=getComputedStyle(document.documentElement);
+      return {surface:s.getPropertyValue('--surface').trim(),ink:s.getPropertyValue('--ink').trim(),muted:s.getPropertyValue('--muted').trim(),border:s.getPropertyValue('--border').trim(),grid:s.getPropertyValue('--grid').trim(),primary:s.getPropertyValue('--primary').trim(),accent:s.getPropertyValue('--accent').trim(),success:s.getPropertyValue('--success').trim(),danger:s.getPropertyValue('--danger').trim()};
+    }
+    function turbo(t) {
+      t=clamp(t,0,1);
+      const stops=[[28,35,85],[32,108,165],[39,172,145],[196,211,73],[242,132,39],[178,24,43]];
+      const p=t*(stops.length-1),i=Math.min(stops.length-2,Math.floor(p)),f=p-i;
+      return stops[i].map((v,k)=>Math.round(lerp(v,stops[i+1][k],f)));
+    }
+
+    function renderCharts(s,r) {
+      renderProfile(s,r);
+      renderDepthChart(s,r);
+      renderDetectability(s,r);
+      renderFieldMap(s,r);
+    }
+
+    function drawAxes(ctx,width,height,m,xmin,xmax,ymin,ymax,xLabel,yLabel,colors) {
+      const pw=width-m.l-m.r,ph=height-m.t-m.b;
+      ctx.strokeStyle=colors.grid;ctx.lineWidth=1;ctx.fillStyle=colors.muted;ctx.font='12px system-ui';
+      for(let i=0;i<=5;i++){
+        const x=m.l+pw*i/5,y=m.t+ph*i/5;
+        ctx.beginPath();ctx.moveTo(x,m.t);ctx.lineTo(x,m.t+ph);ctx.stroke();
+        ctx.beginPath();ctx.moveTo(m.l,y);ctx.lineTo(m.l+pw,y);ctx.stroke();
+        ctx.textAlign='center';ctx.fillText((xmin+(xmax-xmin)*i/5).toFixed(1),x,height-9);
+        ctx.textAlign='right';ctx.fillText(compactNumber(ymax-(ymax-ymin)*i/5),m.l-7,y+4);
+      }
+      ctx.fillStyle=colors.ink;ctx.textAlign='center';ctx.fillText(xLabel,m.l+pw/2,height-1);
+      ctx.save();ctx.translate(13,m.t+ph/2);ctx.rotate(-Math.PI/2);ctx.fillText(yLabel,0,0);ctx.restore();
+      return {pw,ph};
+    }
+    function compactNumber(value) {
+      const a=Math.abs(value);
+      if(a>=1)return value.toFixed(1);
+      if(a>=1e-3)return `${(value*1e3).toFixed(1)}mT`;
+      if(a>=1e-6)return `${(value*1e6).toFixed(1)}μT`;
+      if(a>=1e-9)return `${(value*1e9).toFixed(1)}nT`;
+      if(a>=1)return value.toFixed(1);
+      return value.toExponential(1);
+    }
+
+    function renderProfile(s,r) {
+      const canvas=$('profileCanvas'),{ctx,width,height}=canvasSetup(canvas),colors=theme();
+      const m={l:72,r:18,t:22,b:42};
+      let ymin=Math.min(...r.profile.values),ymax=Math.max(...r.profile.values);
+      if(ymin===ymax){ymin-=1e-12;ymax+=1e-12;}
+      const pad=(ymax-ymin)*0.1;ymin-=pad;ymax+=pad;
+      ctx.fillStyle=colors.surface;ctx.fillRect(0,0,width,height);
+      const xmin=r.profile.xs[0]/UM,xmax=r.profile.xs.at(-1)/UM;
+      const {pw,ph}=drawAxes(ctx,width,height,m,xmin,xmax,ymin,ymax,'横向位置 x (μm)',componentName(s.geometry==='pair'&&s.target==='resolution'?(s.component==='nv'?'nv':'bx'):s.component),colors);
+      ctx.strokeStyle=colors.primary;ctx.lineWidth=2.3;ctx.beginPath();
+      r.profile.values.forEach((v,i)=>{const x=m.l+pw*i/(r.profile.values.length-1),y=m.t+ph*(ymax-v)/(ymax-ymin);if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);});ctx.stroke();
+      ctx.strokeStyle=colors.accent;ctx.setLineDash([7,5]);
+      const zeroY=m.t+ph*ymax/(ymax-ymin);ctx.beginPath();ctx.moveTo(m.l,zeroY);ctx.lineTo(m.l+pw,zeroY);ctx.stroke();ctx.setLineDash([]);
+      profileMeta={xmin,xmax,ymin,ymax,m,pw,ph,profile:r.profile};
+      $('profileMeta').textContent=`d=${formatLength(s.distance)} · ${componentName(s.component)}`;
+    }
+
+    function renderDepthChart(s,r) {
+      const canvas=$('depthCanvas'),{ctx,width,height}=canvasSetup(canvas),colors=theme(),m={l:62,r:18,t:22,b:42};
+      ctx.fillStyle=colors.surface;ctx.fillRect(0,0,width,height);
+      const dmin=minimumDistance(s),dmax=s.maxSearchDepth,count=['loop','path'].includes(s.geometry)?48:70;
+      const ds=[],snrs=[];
+      const sampleCount=['loop','path'].includes(s.geometry)?41:71;
+      for(let i=0;i<count;i++){const d=dmin*Math.pow(dmax/dmin,i/(count-1));ds.push(d);snrs.push(s.current*transferAt(s,d,sampleCount)/r.noise);}
+      const ymax=Math.max(r.qUsed*1.25,...snrs)*1.08;
+      const {pw,ph}=drawAxes(ctx,width,height,m,dmin/UM,dmax/UM,0,ymax,'总距离 d (μm)','SNR',colors);
+      const xOf=d=>m.l+pw*((d-dmin)/(dmax-dmin));
+      ctx.strokeStyle=colors.primary;ctx.lineWidth=2.3;ctx.beginPath();snrs.forEach((v,i)=>{const x=xOf(ds[i]),y=m.t+ph*(1-v/ymax);if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);});ctx.stroke();
+      const thresholdY=m.t+ph*(1-r.qUsed/ymax);ctx.strokeStyle=colors.danger;ctx.setLineDash([8,5]);ctx.beginPath();ctx.moveTo(m.l,thresholdY);ctx.lineTo(m.l+pw,thresholdY);ctx.stroke();ctx.setLineDash([]);
+      $('depthMeta').textContent=r.maxDepth.status==='beyond'?`dmax 超过 ${formatLength(r.maxDepth.value)}`:`dmax ${formatLength(r.maxDepth.value)}`;
+    }
+
+    function renderDetectability(s,r) {
+      const canvas=$('detectabilityCanvas'),{ctx,width,height}=canvasSetup(canvas),colors=theme(),m={l:62,r:18,t:22,b:42};
+      const pw=width-m.l-m.r,ph=height-m.t-m.b;
+      ctx.fillStyle=colors.surface;ctx.fillRect(0,0,width,height);
+      const heavy=['loop','path'].includes(s.geometry),cols=heavy?38:54,rows=heavy?30:38,dmin=minimumDistance(s),dmax=s.maxSearchDepth,imax=Math.max(s.current*2,r.minCurrent*2,0.1*MA);
+      const transfers=[];for(let ix=0;ix<cols;ix++){const d=lerp(dmin,dmax,ix/(cols-1));transfers.push(transferAt(s,d,heavy?35:61));}
+      for(let iy=0;iy<rows;iy++)for(let ix=0;ix<cols;ix++){
+        const current=imax*(1-iy/(rows-1));const ratio=(current*transfers[ix]/r.noise)/r.qUsed;
+        const rgb=turbo(clamp(Math.log10(Math.max(ratio,0.05))/2+0.65,0,1));ctx.fillStyle=`rgb(${rgb.join(',')})`;
+        ctx.fillRect(m.l+pw*ix/cols,m.t+ph*iy/rows,pw/cols+1,ph/rows+1);
+      }
+      ctx.strokeStyle=colors.ink;ctx.fillStyle=colors.ink;ctx.font='12px system-ui';ctx.strokeRect(m.l,m.t,pw,ph);
+      for(let i=0;i<=5;i++){const x=m.l+pw*i/5,y=m.t+ph*i/5;ctx.textAlign='center';ctx.fillText((lerp(dmin,dmax,i/5)/UM).toFixed(0),x,height-9);ctx.textAlign='right';ctx.fillText((imax*(1-i/5)/MA).toFixed(2),m.l-7,y+4);}
+      ctx.textAlign='center';ctx.fillText('总距离 d (μm)',m.l+pw/2,height-1);ctx.save();ctx.translate(13,m.t+ph/2);ctx.rotate(-Math.PI/2);ctx.fillText('电流 (mA)',0,0);ctx.restore();
+      ctx.strokeStyle='#ffffff';ctx.lineWidth=2;ctx.setLineDash([5,4]);ctx.beginPath();let started=false;
+      transfers.forEach((H,i)=>{const current=r.qUsed*r.noise/Math.max(H,1e-30);if(current<=imax){const x=m.l+pw*i/(cols-1),y=m.t+ph*(1-current/imax);if(!started){ctx.moveTo(x,y);started=true;}else ctx.lineTo(x,y);}});ctx.stroke();ctx.setLineDash([]);
+    }
+
+    function renderFieldMap(s,r) {
+      const canvas=$('fieldMapCanvas'),{ctx,width,height}=canvasSetup(canvas),colors=theme(),m={l:54,r:18,t:22,b:42};
+      const heavy=['loop','path'].includes(s.geometry),pw=width-m.l-m.r,ph=height-m.t-m.b,cols=heavy?62:86,rows=heavy?44:58;
+      ctx.fillStyle=colors.surface;ctx.fillRect(0,0,width,height);
+      const scale=Math.max(geometryScale(s)*1.5,12*UM),xMin=-scale/2,xMax=scale/2;
+      const planar=['loop','path'].includes(s.geometry),vMin=planar?-scale/2:0,vMax=planar?scale/2:Math.max(s.distance*1.5,scale*0.65);
+      const values=new Float64Array(cols*rows);let maxAbs=0;
+      for(let j=0;j<rows;j++)for(let i=0;i<cols;i++){
+        const x=lerp(xMin,xMax,i/(cols-1)),v=lerp(vMax,vMin,j/(rows-1));
+        const f=planar?rawFieldAt(s,x,v,s.distance,s.current):rawFieldAt(s,x,0,Math.max(0.002*UM,v),s.current);
+        const val=fieldValue(s,f,s.component);values[j*cols+i]=val;maxAbs=Math.max(maxAbs,Math.abs(val));
+      }
+      const signed=s.component!=='mag';
+      for(let j=0;j<rows;j++)for(let i=0;i<cols;i++){
+        const val=values[j*cols+i],t=signed?0.5+0.5*val/Math.max(maxAbs,1e-30):Math.sqrt(Math.abs(val)/Math.max(maxAbs,1e-30));
+        const rgb=signed?diverging(t):turbo(t);ctx.fillStyle=`rgb(${rgb.join(',')})`;ctx.fillRect(m.l+pw*i/cols,m.t+ph*j/rows,pw/cols+1,ph/rows+1);
+      }
+      ctx.strokeStyle=colors.ink;ctx.strokeRect(m.l,m.t,pw,ph);ctx.fillStyle=colors.ink;ctx.font='12px system-ui';ctx.textAlign='center';
+      for(let i=0;i<=4;i++)ctx.fillText((lerp(xMin,xMax,i/4)/UM).toFixed(1),m.l+pw*i/4,height-9);
+      ctx.fillText('x (μm)',m.l+pw/2,height-1);ctx.save();ctx.translate(13,m.t+ph/2);ctx.rotate(-Math.PI/2);ctx.fillText(planar?'y (μm)':'z (μm)',0,0);ctx.restore();
+      mapMeta={m,pw,ph,xMin,xMax,vMin,vMax,planar,values,cols,rows,maxAbs};
+      $('fieldMapTitle').textContent=planar?'观测平面磁场分布':'XZ截面磁场分布';
+      $('fieldMapMeta').textContent=`${componentName(s.component)} · 峰值 ${formatField(maxAbs)}`;
+    }
+    function diverging(t){t=clamp(t,0,1);if(t<0.5){const u=t*2;return [Math.round(30+225*u),Math.round(88+167*u),Math.round(170+85*u)];}const u=(t-0.5)*2;return [255,Math.round(255-205*u),Math.round(255-205*u)];}
+
+    function renderReport(s,r) {
+      const approx=lineApproximation(s),burial=r.maxDepth.value==null?null:r.maxDepth.value-s.fixedDistance;
+      const distanceMode=$('distanceMode').value==='direct'?'直接总距离':'埋深与固定距离分解';
+      const pairText=s.geometry==='pair'?`两导线边缘间距为 ${formatLength(s.gap)}，中心距为 ${formatLength(s.gap+(s.width1+s.width2)/2)}。` : '';
+      const warnings=[];
+      if(s.component==='nv')warnings.push('结果为指定NV轴的单轴投影，不应直接解释为完整Bx、By或Bz分量。');
+      if(s.psf===0)warnings.push('光学PSF被设为0，空间分辨相关结果偏乐观。');
+      if(r.maxDepth.status==='beyond')warnings.push(`在最大搜索距离 ${formatLength(s.maxSearchDepth)} 处仍满足判据，真实最大距离大于当前扫描上限。`);
+      if(burial!=null&&burial<0)warnings.push('固定距离已经超过理论最大总探测距离，最大芯片埋深为负。');
+      if(s.geometry==='path'&&($('closePath').checked===false))warnings.push('当前折线路径未闭合，不满足稳恒直流连续性，结果仅作为局部线元估算。');
+      if(['strip','pair'].includes(s.geometry)&&s.distance<Math.max(s.width1,s.width2)/2)warnings.push('当前处于导线近场，有限截面和空间平均不可忽略。');
+      const verdict=s.geometry==='pair'
+        ?`在指定边缘间距下，双极磁场SNR为 ${r.snr.toFixed(3)}，${r.pass?'达到':'未达到'} ${r.qUsed.toFixed(2)} 的可区分判据。`
+        :`当前${componentName(s.component)}有效信号为 ${formatField(r.metric.value)}，SNR为 ${r.snr.toFixed(3)}，${r.pass?'达到':'未达到'} ${r.qUsed.toFixed(2)} 的检测判据。`;
+      $('reportContent').innerHTML=`
+        <p class="report-lead"><strong>评估结论：</strong>${verdict}</p>
+        <h3>已知条件</h3>
+        <div class="table-wrap"><table class="report-table"><thead><tr><th>类别</th><th>参数</th><th>取值</th></tr></thead><tbody>
+          <tr><td>测量</td><td>归一化磁灵敏度</td><td>${formatEta(s.eta)}</td></tr>
+          <tr><td>测量</td><td>有效积分与平均</td><td>${formatTime(s.tau)} × ${s.averages}次，Kproc=${s.kproc.toFixed(3)}</td></tr>
+          <tr><td>判据</td><td>SNR阈值</td><td>${r.qUsed.toFixed(3)}</td></tr>
+          <tr><td>电流</td><td>结构与幅值</td><td>${geometryName(s.geometry)}，${formatCurrent(s.current)}</td></tr>
+          <tr><td>距离</td><td>${distanceMode}</td><td>${formatLength(s.distance)}</td></tr>
+          <tr><td>传感器</td><td>NV层、像素、PSF</td><td>${formatLength(s.nvThickness)}；${formatLength(s.pixel)}；${formatLength(s.psf)}</td></tr>
+          <tr><td>测量分量</td><td>最终评估场量</td><td>${componentName(s.component)}</td></tr>
+        </tbody></table></div>
+        <h3>正向预测</h3>
+        <ul class="report-list">
+          <li>单像素磁场噪声：${formatField(r.noise)}；检测阈值：${formatField(r.threshold)}。</li>
+          <li>当前有效磁场信号：${formatField(r.metric.value)}；SNR：${r.snr.toFixed(3)}。</li>
+          <li>最大总探测距离：${r.maxDepth.status==='beyond'?'大于 ':''}${formatLength(r.maxDepth.value)}；对应最大芯片埋藏深度：${formatLength(burial)}。</li>
+          ${pairText?`<li>${pairText}</li>`:''}
+        </ul>
+        <h3>反向指标要求</h3>
+        <ul class="report-list">
+          <li>在当前电流和距离下，磁灵敏度应满足 ηB ≤ <strong>${formatEta(r.requiredEta)}</strong>。</li>
+          <li>在当前磁灵敏度和距离下，最小所需电流为 <strong>${formatCurrent(r.minCurrent)}</strong>。</li>
+          <li>在当前磁灵敏度、电流和平均次数下，最短有效积分时间为 <strong>${formatTime(r.minTime)}</strong>。</li>
+        </ul>
+        <h3>模型适用性</h3>
+        <p>${approx?`细线近似几何比值 K=${approx.K.toFixed(2)}，中心点有限截面与细线模型差异约 ${(approx.error*100).toFixed(2)}%；${approx.label}。`:'闭合结构采用离散Biot–Savart线元积分，离散精度适合快速工程评估。'}</p>
+        <h3>风险与限制</h3>
+        ${warnings.length?`<ul class="report-list">${warnings.map(w=>`<li>${w}</li>`).join('')}</ul>`:'<p>当前输入未触发额外的模型适用性警告；仍应使用标准载流结构和实测距离对结果进行校准。</p>'}
+      `;
+      $('reportTimestamp').textContent=new Date().toLocaleString('zh-CN',{hour12:false});
+    }
+
+    function loadCases(){try{const x=JSON.parse(sessionStorage.getItem(CASES_KEY)||'[]');return Array.isArray(x)?x.slice(0,MAX_CASES):[];}catch{return[];}}
+    function saveCases(){sessionStorage.setItem(CASES_KEY,JSON.stringify(comparisonCases));}
+    function addCase(){
+      if(!state||!state.result)return;
+      if(comparisonCases.length>=MAX_CASES){$('formError').textContent=`最多保存${MAX_CASES}个方案。`;return;}
+      const r=state.result;
+      comparisonCases.push({id:Date.now(),name:`方案${comparisonCases.length+1}`,geometry:state.geometry,current:state.current,distance:state.distance,signal:r.metric.value,snr:r.snr,maxDepth:r.maxDepth.value,maxStatus:r.maxDepth.status,pass:r.pass});
+      saveCases();renderCases();
+    }
+    function renderCases(){
+      $('caseCount').textContent=`${comparisonCases.length} / ${MAX_CASES}`;
+      $('caseList').innerHTML=comparisonCases.length?comparisonCases.map((c,i)=>`<div class="case-row"><div><strong>${c.name}</strong><br><small>${geometryName(c.geometry)} · ${formatCurrent(c.current)} · d=${formatLength(c.distance)}</small></div><button type="button" data-delete-case="${i}">删除</button></div>`).join(''):'<p class="status-line">计算后可将当前方案加入对比。</p>';
+      $('comparisonBody').innerHTML=comparisonCases.length?comparisonCases.map(c=>`<tr><td>${c.name}</td><td>${geometryName(c.geometry)}</td><td>${formatCurrent(c.current)}</td><td>${formatLength(c.distance)}</td><td>${formatField(c.signal)}</td><td>${c.snr.toFixed(3)}</td><td>${c.maxStatus==='beyond'?'&gt; ':''}${formatLength(c.maxDepth)}</td><td>${c.pass?'满足':'不满足'}</td></tr>`).join(''):'<tr><td colspan="8">暂无方案</td></tr>';
+      document.querySelectorAll('[data-delete-case]').forEach(button=>button.addEventListener('click',()=>{comparisonCases.splice(Number(button.dataset.deleteCase),1);comparisonCases.forEach((c,i)=>c.name=`方案${i+1}`);saveCases();renderCases();}));
+    }
+
+    $('parameterForm').addEventListener('submit',event=>{event.preventDefault();calculate();});
+    $('geometryType').addEventListener('change',updateVisibility);
+    $('distanceMode').addEventListener('change',updateVisibility);
+    $('solveTarget').addEventListener('change',updateVisibility);
+    $('component').addEventListener('change',()=>{if($('geometryType').value==='pair'&&$('component').value!=='nv')$('component').value='bx';});
+    $('resetButton').addEventListener('click',()=>{ $('parameterForm').reset(); updateVisibility(); calculate(); });
+    $('printButton').addEventListener('click',()=>window.print());
+    $('addCaseButton').addEventListener('click',addCase);
+    $('clearCasesButton').addEventListener('click',()=>{comparisonCases=[];saveCases();renderCases();});
+    $('fieldMapCanvas').addEventListener('click',event=>{
+      if(!mapMeta)return;const rect=event.currentTarget.getBoundingClientRect(),xpx=event.clientX-rect.left,ypx=event.clientY-rect.top;
+      const tx=clamp((xpx-mapMeta.m.l)/mapMeta.pw,0,1),ty=clamp((ypx-mapMeta.m.t)/mapMeta.ph,0,1);
+      const x=lerp(mapMeta.xMin,mapMeta.xMax,tx),v=lerp(mapMeta.vMax,mapMeta.vMin,ty),i=clamp(Math.round(tx*(mapMeta.cols-1)),0,mapMeta.cols-1),j=clamp(Math.round(ty*(mapMeta.rows-1)),0,mapMeta.rows-1),value=mapMeta.values[j*mapMeta.cols+i];
+      $('fieldProbe').textContent=`x=${(x/UM).toFixed(3)} μm，${mapMeta.planar?'y':'z'}=${(v/UM).toFixed(3)} μm，${componentName(state.component)}=${formatField(value)}`;
+    });
+    $('profileCanvas').addEventListener('click',event=>{
+      if(!profileMeta)return;const rect=event.currentTarget.getBoundingClientRect(),t=clamp((event.clientX-rect.left-profileMeta.m.l)/profileMeta.pw,0,1),index=Math.round(t*(profileMeta.profile.xs.length-1));
+      $('profileProbe').textContent=`x=${(profileMeta.profile.xs[index]/UM).toFixed(3)} μm，磁场=${formatField(profileMeta.profile.values[index])}`;
+    });
+    window.addEventListener('resize',()=>{clearTimeout(resizeTimer);resizeTimer=setTimeout(()=>{if(state)renderCharts(state,state.result);},180);});
+    updateVisibility();renderCases();
+  </script>
+</body>
+</html>
