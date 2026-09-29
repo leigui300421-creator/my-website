@@ -8,6 +8,10 @@
 
 https://leigui300421-creator.github.io/my-website/
 
+单根直导线磁场分布仿真：
+
+https://leigui300421-creator.github.io/my-website/single_wire_magnetic_simulator.html
+
 导线模型与载流能力评估器：
 
 https://leigui300421-creator.github.io/my-website/wire_model_ampacity_evaluator.html
@@ -21,6 +25,7 @@ https://leigui300421-creator.github.io/my-website/image-roi-analyzer.html
 ```text
 my-website/
 ├── index.html       # 网站首页和网页目录
+├── single_wire_magnetic_simulator.html # 有限长矩形截面单根直导线磁场仿真
 ├── wire_model_ampacity_evaluator.html # 导线模型适用性与载流能力评估器
 ├── Two_wire_magnetic_simulator.html   # 矩形截面双导线交互仿真
 ├── NV_current_magnetic_imaging_evaluator.html # NV宽场芯片电流磁成像探测能力评估
@@ -29,6 +34,16 @@ my-website/
 ├── README.md        # 项目说明
 └── .gitignore       # Git 忽略规则
 ```
+
+## 单根直导线磁场分布
+
+`single_wire_magnetic_simulator.html` 用于研究一段有限长、有限宽度和有限厚度的矩形截面直导线在平行观察面上的磁场分布。导线可以沿全局 X 方向、沿全局 Y 方向或按自定义倾角放置；倾角从 +X 轴向 +Y 轴逆时针计，正电流沿导线方向向量流动。
+
+页面以导线上表面中心为全局坐标原点，上表面为 `z = 0`、导线底面为 `z = -t`，观察高度 `h` 从上表面开始计算。有限截面模型假设截面内直流密度均匀，长度方向使用有限线段毕奥–萨伐尔闭式解，宽度和厚度方向使用高斯求积。理想细线位于截面中心 `z = -t/2`，与有限截面模型具有相同长度、电流和方向。
+
+仿真同时显示 `Bx`、`By`、`Bz` 和总磁场 `|B|` 的 XY 平面二维图，以及经过导线中点的四幅一维剖面。二维结果可切换有限截面、有限长理想细线和两者差值；一维图使用实线和虚线直接比较两个模型。页面还支持设置导线长度、宽度、厚度、电流、观察高度、显示范围、剖面方向和计算精度，并给出细线近似的矢量归一化差异。
+
+访问密码为 `123456`。密码校验在静态网页前端完成，并在当前浏览器会话中保留解锁状态；它只能减少普通访问，不能替代服务端身份验证。
 
 ## 导线模型与载流能力评估
 

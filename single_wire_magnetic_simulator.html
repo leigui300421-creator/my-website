@@ -1,0 +1,999 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="有限长矩形截面单根直导线在不同观察高度下的总磁场及 Bx、By、Bz 分量二维与一维分布。">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%23155eef'/%3E%3Cpath d='M10 32h44' stroke='white' stroke-width='6' stroke-linecap='round'/%3E%3Cpath d='M20 18c-9 8-9 20 0 28M44 18c9 8 9 20 0 28' fill='none' stroke='%23f4b45d' stroke-width='4' stroke-linecap='round'/%3E%3C/svg%3E">
+  <title>单根直导线磁场分布仿真</title>
+  <script>
+    window.MathJax = {
+      tex: { inlineMath: [['\\(', '\\)']], displayMath: [['\\[', '\\]']] },
+      svg: { fontCache: 'global' }
+    };
+  </script>
+  <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: #f3f6fa;
+      --surface: #ffffff;
+      --surface-2: #edf2f8;
+      --text: #172033;
+      --muted: #5c6b80;
+      --border: #cbd7e5;
+      --primary: #155eef;
+      --primary-hover: #0b4fd2;
+      --focus: #79a7ff;
+      --danger: #b42318;
+      --warning: #8a6100;
+      --success: #137547;
+      --grid: #dfe6ef;
+      --axis: #506177;
+      --wire: #b87333;
+      --finite: #155eef;
+      --thin: #d97706;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0f1722;
+        --surface: #172131;
+        --surface-2: #202c3d;
+        --text: #edf3fa;
+        --muted: #a8b6c8;
+        --border: #3a4a60;
+        --primary: #78a8ff;
+        --primary-hover: #9bbfff;
+        --focus: #78a8ff;
+        --danger: #ff9188;
+        --warning: #f4c152;
+        --success: #70d6a1;
+        --grid: #2d3b4f;
+        --axis: #a9b7c9;
+        --wire: #d28b50;
+        --finite: #78a8ff;
+        --thin: #f4b45d;
+      }
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      color: var(--text);
+      background: var(--bg);
+      font-family: system-ui, -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+      line-height: 1.65;
+    }
+
+    button, input, select { font: inherit; }
+    button, select, input[type="checkbox"] { cursor: pointer; }
+    a { color: var(--primary); }
+    .hidden { display: none !important; }
+
+    .gate {
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+    }
+
+    .gate-card {
+      width: min(440px, 100%);
+      padding: 28px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      box-shadow: 0 18px 54px rgb(15 23 42 / 12%);
+    }
+
+    .gate-card h1 { margin: 0 0 8px; font-size: 28px; }
+    .gate-card p { color: var(--muted); }
+    .gate-card .actions { grid-template-columns: 1fr; margin-top: 16px; }
+
+    .page {
+      width: min(1600px, 100%);
+      margin: 0 auto;
+      padding: 34px 24px 72px;
+    }
+
+    .page-header {
+      padding: 18px 0 28px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    h1, h2, h3 { line-height: 1.25; }
+    h1 { margin: 0 0 10px; font-size: clamp(28px, 4.5vw, 46px); }
+    h2 { margin: 42px 0 16px; font-size: clamp(23px, 3.5vw, 31px); }
+    h3 { margin: 24px 0 10px; font-size: 19px; }
+    p { margin: 9px 0; }
+
+    .lede { max-width: 920px; color: var(--muted); }
+    .toc { display: flex; gap: 10px 20px; flex-wrap: wrap; padding-top: 14px; }
+    .toc a { text-decoration: none; }
+    .theory, .simulator { scroll-margin-top: 18px; }
+
+    .theory-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 18px;
+    }
+
+    .panel {
+      min-width: 0;
+      padding: 20px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+    }
+
+    .panel > :first-child { margin-top: 0; }
+    .panel > :last-child { margin-bottom: 0; }
+    .formula-scroll { overflow-x: auto; }
+    .note { padding: 12px 14px; background: var(--surface-2); border-left: 4px solid var(--primary); border-radius: 7px; }
+    .assumptions li { margin: 5px 0; }
+    .relation-table { width: 100%; margin-top: 12px; border-collapse: collapse; font-size: 14px; }
+    .relation-table th, .relation-table td { padding: 8px 9px; text-align: left; border-bottom: 1px solid var(--border); }
+    .relation-table th { color: var(--muted); font-weight: 600; }
+
+    .sim-layout {
+      display: grid;
+      grid-template-columns: minmax(292px, 330px) minmax(0, 1fr);
+      gap: 20px;
+      align-items: start;
+    }
+
+    .controls-panel { position: sticky; top: 12px; }
+    .parameter-group { margin: 0 0 14px; border: 1px solid var(--border); border-radius: 10px; }
+    .parameter-group summary { padding: 11px 14px; font-weight: 700; cursor: pointer; }
+    .parameter-group[open] summary { border-bottom: 1px solid var(--border); }
+    .parameter-body { padding: 14px; }
+    .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 11px; }
+    .field { min-width: 0; }
+    .field.wide { grid-column: 1 / -1; }
+    .field label { display: block; margin-bottom: 4px; color: var(--muted); font-size: 14px; }
+    .input-unit { display: flex; align-items: stretch; }
+
+    input[type="number"], input[type="password"], select {
+      width: 100%;
+      min-width: 0;
+      height: 42px;
+      padding: 8px 10px;
+      color: var(--text);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+
+    input[type="number"] { border-radius: 8px 0 0 8px; }
+    .unit {
+      display: grid;
+      min-width: 48px;
+      place-items: center;
+      padding: 0 8px;
+      color: var(--muted);
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-left: 0;
+      border-radius: 0 8px 8px 0;
+      font-size: 13px;
+    }
+
+    input:focus-visible, select:focus-visible, button:focus-visible, a:focus-visible, summary:focus-visible {
+      outline: 3px solid var(--focus);
+      outline-offset: 2px;
+    }
+
+    .orientation-tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; margin-bottom: 12px; }
+    .orientation-tabs button, .actions button {
+      min-height: 40px;
+      padding: 8px 10px;
+      color: var(--text);
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+    .orientation-tabs button[aria-pressed="true"], .actions .primary {
+      color: #fff;
+      background: var(--primary);
+      border-color: var(--primary);
+    }
+    .orientation-tabs button[aria-pressed="true"] { font-weight: 700; }
+    .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+    .actions button:hover { border-color: var(--primary); }
+    .actions .primary:hover { background: var(--primary-hover); }
+
+    .check-row { display: flex; gap: 9px; align-items: flex-start; margin-top: 11px; color: var(--muted); font-size: 14px; }
+    .check-row input { margin-top: 5px; }
+    .error { min-height: 1.6em; margin: 10px 0 0; color: var(--danger); font-size: 14px; }
+    .status-line { color: var(--muted); font-size: 14px; }
+
+    .results { min-width: 0; }
+    .stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 14px; }
+    .stat { min-width: 0; padding: 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; }
+    .stat-label { color: var(--muted); font-size: 13px; }
+    .stat-value { margin-top: 3px; font-size: clamp(17px, 2vw, 23px); font-weight: 700; font-variant-numeric: tabular-nums; }
+    .stat-detail { color: var(--muted); font-size: 12px; }
+
+    .map-section, .profile-section { margin-top: 14px; }
+    .section-head { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; margin-bottom: 12px; }
+    .section-head h3 { margin: 0; }
+    .section-head p { margin: 3px 0 0; color: var(--muted); font-size: 13px; }
+    .legend { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 12px; color: var(--muted); font-size: 13px; }
+    .legend-line { display: inline-block; width: 28px; height: 3px; margin-right: 5px; vertical-align: middle; background: var(--finite); }
+    .legend-line.thin { height: 0; background: transparent; border-top: 2px dashed var(--thin); }
+
+    .map-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+    .profile-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    .chart-card { min-width: 0; padding: 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; }
+    .chart-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 7px; }
+    .chart-head h4 { margin: 0; font-size: 15px; }
+    .chart-head span { color: var(--muted); font-size: 12px; }
+    canvas.chart { display: block; width: 100%; height: 320px; background: var(--surface); border-radius: 6px; touch-action: none; }
+    canvas.line-chart { height: 310px; }
+    .probe { margin: 10px 2px 0; color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+
+    .model-status { margin-top: 12px; padding: 11px 13px; border-left: 4px solid var(--border); background: var(--surface-2); border-radius: 7px; }
+    .model-status.good { border-color: var(--success); }
+    .model-status.warn { border-color: var(--warning); }
+    .model-status.bad { border-color: var(--danger); }
+    footer { margin-top: 42px; padding-top: 18px; color: var(--muted); border-top: 1px solid var(--border); }
+
+    @media (max-width: 1320px) {
+      .map-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+
+    @media (max-width: 980px) {
+      .theory-grid, .sim-layout { grid-template-columns: 1fr; }
+      .controls-panel { position: static; }
+      .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+
+    @media (max-width: 620px) {
+      .page { padding: 22px 13px 54px; }
+      .panel { padding: 15px; }
+      .form-grid, .stats, .map-grid, .profile-grid { grid-template-columns: 1fr; }
+      .section-head { display: block; }
+      .legend { justify-content: flex-start; margin-top: 8px; }
+      .toc { display: grid; }
+      canvas.chart { height: 350px; }
+      canvas.line-chart { height: 300px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+  </style>
+</head>
+<body>
+  <section id="accessGate" class="gate" aria-labelledby="gateTitle">
+    <form id="accessForm" class="gate-card">
+      <h1 id="gateTitle">单根直导线磁场分布</h1>
+      <!-- <p>请输入访问密码</p> -->
+      <div class="field">
+        <label for="accessPassword">访问密码</label>
+        <input id="accessPassword" type="password" autocomplete="current-password" required autofocus>
+      </div>
+      <div class="actions">
+        <button class="primary" type="submit">进入仿真</button>
+      </div>
+      <p id="accessError" class="error" role="alert" aria-live="assertive"></p>
+    </form>
+  </section>
+
+  <main id="app" class="page hidden">
+    <header class="page-header">
+      <h1>单根矩形截面直导线磁场分布</h1>
+      <p class="lede">在与导线平面平行的观察面上，计算有限长、有限宽度和有限厚度直导线产生的总磁场与三个全局分量，并与位于截面中心的有限长理想细线进行比较。</p>
+      <nav class="toc" aria-label="页面目录">
+        <a href="#theory">理论模型</a>
+        <a href="#simulator">参数与仿真</a>
+        <a href="#limits">适用范围</a>
+        <a href="./index.html">返回首页</a>
+      </nav>
+    </header>
+
+    <article id="theory" class="theory">
+      <h2>理论模型</h2>
+      <div class="theory-grid">
+        <section class="panel">
+          <h3>1. 全局坐标与观察面</h3>
+          <p>全局 \(X,Y,Z\) 坐标固定不动：二维图横轴为 \(X\)，纵轴为 \(Y\)，\(+Z\) 垂直导线上表面向上。原点位于导线上表面的几何中心，导线上表面为 \(z=0\)，底面为 \(z=-t\)，观察面为 \(z=h\)。因此观察高度 \(h\) 始终从导线上表面开始计算。</p>
+        </section>
+
+        <section class="panel">
+          <h3>2. 导线方向与局部坐标</h3>
+          <p>倾角 \(\theta\) 从全局 \(+X\) 轴向 \(+Y\) 轴逆时针计。长度方向和宽度方向单位向量分别为：</p>
+          <div class="formula-scroll">
+            \[\mathbf u=(\cos\theta,\sin\theta,0),\qquad \mathbf v=(-\sin\theta,\cos\theta,0)\]
+            \[s=x\cos\theta+y\sin\theta,\qquad d=-x\sin\theta+y\cos\theta\]
+          </div>
+          <p>\(s\) 沿导线和正电流方向，\(d\) 横跨导线宽度；全局分量 \(B_x,B_y,B_z\) 始终相对于固定的 \(X,Y,Z\) 方向。</p>
+        </section>
+
+        <section class="panel">
+          <h3>3. 有限矩形截面</h3>
+          <p>均匀直流密度为 \(\mathbf J=I\mathbf u/(wt)\)。导线被分解为分布在宽度和厚度方向上的有限长平行细丝，每根细丝携带 \(dI=I\,d\eta\,d\zeta/(wt)\)。长度方向采用有限线段闭式解，截面方向采用高斯求积。</p>
+          <div class="formula-scroll">
+            \[\mathbf B(\mathbf r)=\frac{\mu_0}{4\pi}\iiint_V\frac{\mathbf J\times(\mathbf r-\mathbf r')}{|\mathbf r-\mathbf r'|^3}\,dV'\]
+          </div>
+        </section>
+
+        <section class="panel">
+          <h3>4. 有限长细丝闭式解</h3>
+          <p>对任一截面细丝，令 \(s_0=\mathbf R\cdot\mathbf u\)、
+            \(\boldsymbol\rho=\mathbf R-s_0\mathbf u\)、\(a=L/2\)，则：</p>
+          <div class="formula-scroll">
+            \[d\mathbf B=\frac{\mu_0dI}{4\pi\rho^2}\left[\frac{s_0+a}{\sqrt{\rho^2+(s_0+a)^2}}-\frac{s_0-a}{\sqrt{\rho^2+(s_0-a)^2}}\right](\mathbf u\times\boldsymbol\rho)\]
+          </div>
+          <p>该公式保留两个端点的衰减，不使用无限长导线假设。</p>
+        </section>
+
+        <section class="panel">
+          <h3>5. 理想细线对比</h3>
+          <p>理想细线具有相同的 \(L、I、\theta\)，并放在矩形截面的中心 \(z=-t/2\)。因此细线到观察面的距离为 \(H=h+t/2\)，比较结果不会混入高度基准差异。</p>
+          <p>二维图可切换有限截面、理想细线和两者差值；一维图始终以实线显示有限截面、虚线显示理想细线。</p>
+        </section>
+
+        <section class="panel">
+          <h3>6. 分量与对称性</h3>
+          <p>对理想细线，令 \(H=h+t/2\)、\(d=-x\sin\theta+y\cos\theta\)，并把有限长度因子与常数组合为 \(K\)，则全局分量的方向关系为：</p>
+          <div class="formula-scroll">
+            \[B_x=KH\sin\theta,\qquad B_y=-KH\cos\theta,\qquad B_z=Kd\]
+            \[|\mathbf B|=\sqrt{B_x^2+B_y^2+B_z^2}\]
+          </div>
+          <p>有限截面模型对截面内所有细丝积分，但仍满足磁场没有沿导线方向分量。\(B_z\) 在导线中心线两侧异号，总场始终非负。</p>
+          <table class="relation-table">
+            <thead><tr><th>导线模式</th><th>方向向量</th><th>理论零分量</th></tr></thead>
+            <tbody>
+              <tr><td>沿 X</td><td>u = (1, 0, 0)</td><td>Bx = 0</td></tr>
+              <tr><td>沿 Y</td><td>u = (0, 1, 0)</td><td>By = 0</td></tr>
+              <tr><td>倾斜 θ</td><td>u = (cos θ, sin θ, 0)</td><td>通常无固定零分量</td></tr>
+            </tbody>
+          </table>
+          <p class="note">正电流沿 \(\mathbf u\) 流动；输入负电流会同时反转 \(B_x、B_y、B_z\)，但不会改变 \(|\mathbf B|\)。</p>
+        </section>
+      </div>
+
+      <section id="limits" class="panel assumptions" style="margin-top:18px">
+        <h3>7. 适用范围与限制</h3>
+        <ul>
+          <li>适用于有限长、矩形截面、截面内电流密度均匀的直流磁静态问题。</li>
+          <li>导线代表完整闭合回路中的一段直线部分；未包含供电端和远处回流路径。</li>
+          <li>忽略趋肤效应、邻近效应、磁性材料、基板涡流、端部电流扩散和温升。</li>
+          <li>观察高度非常接近表面时，结果对截面尺寸和积分精度更敏感，应使用高精度模式。</li>
+        </ul>
+      </section>
+    </article>
+
+    <section id="simulator" class="simulator">
+      <h2>参数与仿真</h2>
+      <div class="sim-layout">
+        <form id="parameterForm" class="panel controls-panel" novalidate>
+          <details class="parameter-group" open>
+            <summary>导线姿态</summary>
+            <div class="parameter-body">
+              <div class="orientation-tabs" role="group" aria-label="导线方向模式">
+                <button type="button" data-orientation="x" aria-pressed="true">沿 X</button>
+                <button type="button" data-orientation="y" aria-pressed="false">沿 Y</button>
+                <button type="button" data-orientation="angle" aria-pressed="false">倾斜</button>
+              </div>
+              <div id="angleField" class="field hidden">
+                <label for="angle">倾斜角度 θ（逆时针为正）</label>
+                <div class="input-unit"><input id="angle" type="number" min="-180" max="180" step="1" value="30"><span class="unit">°</span></div>
+              </div>
+            </div>
+          </details>
+
+          <details class="parameter-group" open>
+            <summary>导线与电流</summary>
+            <div class="parameter-body form-grid">
+              <div class="field"><label for="length">长度 L</label><div class="input-unit"><input id="length" type="number" min="1" max="10000" step="1" value="1000" required><span class="unit">μm</span></div></div>
+              <div class="field"><label for="width">宽度 w</label><div class="input-unit"><input id="width" type="number" min="0.01" max="5000" step="0.1" value="10" required><span class="unit">μm</span></div></div>
+              <div class="field"><label for="thickness">厚度 t</label><div class="input-unit"><input id="thickness" type="number" min="0.01" max="5000" step="0.1" value="0.5" required><span class="unit">μm</span></div></div>
+              <div class="field"><label for="current">电流 I（可为负）</label><div class="input-unit"><input id="current" type="number" min="-100000" max="100000" step="0.1" value="2" required><span class="unit">mA</span></div></div>
+              <div class="field wide"><label for="height">观察高度 h（距上表面）</label><div class="input-unit"><input id="height" type="number" min="0.001" max="100000" step="0.1" value="10" required><span class="unit">μm</span></div></div>
+            </div>
+          </details>
+
+          <details class="parameter-group" open>
+            <summary>二维显示</summary>
+            <div class="parameter-body form-grid">
+              <div class="field wide"><label for="mapModel">二维显示模型</label><select id="mapModel"><option value="finite">有限矩形截面</option><option value="thin">有限长理想细线</option><option value="difference">有限截面 − 理想细线</option></select></div>
+              <div class="field"><label for="xHalf">X 显示半宽</label><div class="input-unit"><input id="xHalf" type="number" min="0.1" max="100000" step="1" value="150" required><span class="unit">μm</span></div></div>
+              <div class="field"><label for="yHalf">Y 显示半宽</label><div class="input-unit"><input id="yHalf" type="number" min="0.1" max="100000" step="1" value="150" required><span class="unit">μm</span></div></div>
+              <div class="field wide"><label for="precision">截面积分与网格精度</label><select id="precision"><option value="fast">快速（6 × 4，65 × 53）</option><option value="standard" selected>标准（8 × 6，89 × 69）</option><option value="high">高精度（12 × 8，121 × 93）</option></select></div>
+              <label class="check-row wide"><input id="fixedComponentScale" type="checkbox" checked>三个分量使用相同的对称色标</label>
+            </div>
+          </details>
+
+          <details class="parameter-group" open>
+            <summary>一维剖面</summary>
+            <div class="parameter-body form-grid">
+              <div class="field wide"><label for="profileDirection">经过导线中点的剖切方向</label><select id="profileDirection"><option value="perpendicular">垂直导线</option><option value="parallel">沿导线</option><option value="x">全局 X</option><option value="y">全局 Y</option></select></div>
+              <div class="field wide"><label for="profileHalf">剖面半长度</label><div class="input-unit"><input id="profileHalf" type="number" min="0.1" max="100000" step="1" value="40" required><span class="unit">μm</span></div></div>
+            </div>
+          </details>
+
+          <div class="actions">
+            <button class="primary" type="submit">开始计算</button>
+            <button id="autoRangeButton" type="button">自动设置范围</button>
+          </div>
+          <p id="formError" class="error" role="alert" aria-live="assertive"></p>
+        </form>
+
+        <div class="results">
+          <p id="calculationStatus" class="status-line" aria-live="polite">正在准备初始计算。</p>
+
+          <div class="stats" aria-label="关键结果">
+            <div class="stat"><div class="stat-label">导线中点正上方 |B|</div><div id="centerMagnitude" class="stat-value">—</div><div id="centerComponents" class="stat-detail">—</div></div>
+            <div class="stat"><div class="stat-label">观察面最大 |B|</div><div id="maximumMagnitude" class="stat-value">—</div><div id="maximumPosition" class="stat-detail">—</div></div>
+            <div class="stat"><div class="stat-label">剖面矢量归一化差异</div><div id="profileError" class="stat-value">—</div><div class="stat-detail">有限截面与细线</div></div>
+            <div class="stat"><div class="stat-label">电流中心到观察面</div><div id="centerDistance" class="stat-value">—</div><div id="orientationLabel" class="stat-detail">—</div></div>
+          </div>
+
+          <section class="panel map-section">
+            <div class="section-head">
+              <div><h3>XY 观察平面二维磁场</h3><p id="mapSubtitle">—</p></div>
+              <div class="legend"><span>统一色卡：紫 → 蓝 → 绿 → 黄 → 红</span><span>分量零值位于色卡中点</span><span>虚线框：导线轮廓，不参与色标</span></div>
+            </div>
+            <div class="map-grid">
+              <article class="chart-card"><div class="chart-head"><h4>Bx</h4><span id="rangeBx">—</span></div><canvas id="mapBx" class="chart" data-key="bx" role="img" aria-label="Bx 二维磁场分布"></canvas></article>
+              <article class="chart-card"><div class="chart-head"><h4>By</h4><span id="rangeBy">—</span></div><canvas id="mapBy" class="chart" data-key="by" role="img" aria-label="By 二维磁场分布"></canvas></article>
+              <article class="chart-card"><div class="chart-head"><h4>Bz</h4><span id="rangeBz">—</span></div><canvas id="mapBz" class="chart" data-key="bz" role="img" aria-label="Bz 二维磁场分布"></canvas></article>
+              <article class="chart-card"><div class="chart-head"><h4 id="magMapTitle">|B|</h4><span id="rangeMag">—</span></div><canvas id="mapMag" class="chart" data-key="mag" role="img" aria-label="总磁场二维分布"></canvas></article>
+            </div>
+            <p id="probeReadout" class="probe" aria-live="polite">点击任一二维图可在四幅图上同步放置探针。</p>
+          </section>
+
+          <section class="panel profile-section">
+            <div class="section-head">
+              <div><h3>经过导线中点的一维剖面</h3><p id="profileSubtitle">有限截面为实线，理想细线为虚线。</p></div>
+              <div class="legend"><span><i class="legend-line"></i>有限矩形截面</span><span><i class="legend-line thin"></i>有限长理想细线</span></div>
+            </div>
+            <div class="profile-grid">
+              <article class="chart-card"><div class="chart-head"><h4>Bx</h4><span>有限 / 细线</span></div><canvas id="lineBx" class="chart line-chart" data-key="bx" role="img" aria-label="Bx 一维剖面"></canvas></article>
+              <article class="chart-card"><div class="chart-head"><h4>By</h4><span>有限 / 细线</span></div><canvas id="lineBy" class="chart line-chart" data-key="by" role="img" aria-label="By 一维剖面"></canvas></article>
+              <article class="chart-card"><div class="chart-head"><h4>Bz</h4><span>有限 / 细线</span></div><canvas id="lineBz" class="chart line-chart" data-key="bz" role="img" aria-label="Bz 一维剖面"></canvas></article>
+              <article class="chart-card"><div class="chart-head"><h4>|B|</h4><span>有限 / 细线</span></div><canvas id="lineMag" class="chart line-chart" data-key="mag" role="img" aria-label="总磁场一维剖面"></canvas></article>
+            </div>
+            <p id="modelStatus" class="model-status">计算后显示细线近似的适用性。</p>
+          </section>
+        </div>
+      </div>
+    </section>
+
+    <footer>结果用于磁场空间分布、分量方向和模型误差分析；真实实验还应考虑完整回路、探测器空间响应及实际电流分布。</footer>
+  </main>
+
+  <script>
+    'use strict';
+
+    const ACCESS_HASH = '8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92';
+    const SESSION_KEY = 'single-wire-magnetic-access';
+    const MU0 = 4 * Math.PI * 1e-7;
+    const UM = 1e-6;
+    const MA = 1e-3;
+    const $ = id => document.getElementById(id);
+    const KEYS = ['bx', 'by', 'bz', 'mag'];
+    const PRECISION = {
+      fast: { nw: 6, nt: 4, nx: 65, ny: 53, profile: 301 },
+      standard: { nw: 8, nt: 6, nx: 89, ny: 69, profile: 501 },
+      high: { nw: 12, nt: 8, nx: 121, ny: 93, profile: 701 }
+    };
+
+    let orientationMode = 'x';
+    let state = null;
+    let grid = null;
+    let profile = null;
+    let probe = null;
+    let resizeTimer = 0;
+
+    async function sha256(text) {
+      const data = new TextEncoder().encode(text);
+      const hash = await crypto.subtle.digest('SHA-256', data);
+      return Array.from(new Uint8Array(hash)).map(value => value.toString(16).padStart(2, '0')).join('');
+    }
+
+    function unlock() {
+      $('accessGate').classList.add('hidden');
+      $('app').classList.remove('hidden');
+      requestAnimationFrame(() => setTimeout(calculate, 40));
+    }
+
+    $('accessForm').addEventListener('submit', async event => {
+      event.preventDefault();
+      const input = $('accessPassword');
+      try {
+        if (await sha256(input.value) === ACCESS_HASH) {
+          sessionStorage.setItem(SESSION_KEY, 'ok');
+          $('accessError').textContent = '';
+          unlock();
+        } else {
+          $('accessError').textContent = '密码不正确。';
+          input.select();
+        }
+      } catch (error) {
+        $('accessError').textContent = '当前浏览器无法执行密码校验，请使用新版浏览器访问。';
+      }
+    });
+
+    function numeric(id, label) {
+      const value = Number($(id).value);
+      if (!Number.isFinite(value)) throw new Error(`${label}必须是有效数字。`);
+      return value;
+    }
+
+    function readParameters() {
+      const length = numeric('length', '导线长度');
+      const width = numeric('width', '导线宽度');
+      const thickness = numeric('thickness', '导线厚度');
+      const current = numeric('current', '电流');
+      const height = numeric('height', '观察高度');
+      const xHalf = numeric('xHalf', 'X 显示半宽');
+      const yHalf = numeric('yHalf', 'Y 显示半宽');
+      const profileHalf = numeric('profileHalf', '剖面半长度');
+      const angleInput = numeric('angle', '倾斜角度');
+      if (length <= 0 || width <= 0 || thickness <= 0) throw new Error('长度、宽度和厚度必须大于 0。');
+      if (height <= 0) throw new Error('观察高度必须大于 0。');
+      if (xHalf <= 0 || yHalf <= 0 || profileHalf <= 0) throw new Error('显示范围和剖面长度必须大于 0。');
+      if (angleInput < -180 || angleInput > 180) throw new Error('倾斜角度应位于 −180° 到 180°。');
+      const angleDeg = orientationMode === 'x' ? 0 : orientationMode === 'y' ? 90 : angleInput;
+      const angle = angleDeg * Math.PI / 180;
+      const c = Math.cos(angle), s = Math.sin(angle);
+      const cfg = PRECISION[$('precision').value];
+      return {
+        length: length * UM, width: width * UM, thickness: thickness * UM,
+        current: current * MA, height: height * UM,
+        xHalf: xHalf * UM, yHalf: yHalf * UM, profileHalf: profileHalf * UM,
+        angleDeg, angle, c, s, cfg,
+        mapModel: $('mapModel').value,
+        fixedComponentScale: $('fixedComponentScale').checked,
+        profileDirection: $('profileDirection').value,
+        filaments: []
+      };
+    }
+
+    function gaussLegendre(n) {
+      const x = new Float64Array(n), w = new Float64Array(n);
+      const m = Math.floor((n + 1) / 2);
+      for (let i = 0; i < m; i++) {
+        let z = Math.cos(Math.PI * (i + 0.75) / (n + 0.5));
+        let previous;
+        let derivative = 0;
+        do {
+          let p1 = 1, p2 = 0;
+          for (let j = 1; j <= n; j++) {
+            const p3 = p2;
+            p2 = p1;
+            p1 = ((2 * j - 1) * z * p2 - (j - 1) * p3) / j;
+          }
+          derivative = n * (z * p1 - p2) / (z * z - 1);
+          previous = z;
+          z = previous - p1 / derivative;
+        } while (Math.abs(z - previous) > 1e-14);
+        x[i] = -z; x[n - 1 - i] = z;
+        const weight = 2 / ((1 - z * z) * derivative * derivative);
+        w[i] = weight; w[n - 1 - i] = weight;
+      }
+      return { x, w };
+    }
+
+    function buildFilaments(model) {
+      const gw = gaussLegendre(model.cfg.nw);
+      const gt = gaussLegendre(model.cfg.nt);
+      const filaments = [];
+      for (let i = 0; i < gw.x.length; i++) {
+        const eta = 0.5 * model.width * gw.x[i];
+        for (let j = 0; j < gt.x.length; j++) {
+          const zSource = -0.5 * model.thickness + 0.5 * model.thickness * gt.x[j];
+          filaments.push({ eta, zSource, current: model.current * gw.w[i] * gt.w[j] / 4 });
+        }
+      }
+      model.filaments = filaments;
+    }
+
+    function filamentField(x, y, eta, zSource, current) {
+      if (current === 0) return { bx: 0, by: 0, bz: 0, mag: 0 };
+      const along = x * state.c + y * state.s;
+      const across = -x * state.s + y * state.c - eta;
+      const vertical = state.height - zSource;
+      const rho2 = across * across + vertical * vertical;
+      const half = state.length / 2;
+      const p = along + half, m = along - half;
+      const endFactor = p / Math.sqrt(rho2 + p * p) - m / Math.sqrt(rho2 + m * m);
+      const k = MU0 * current * endFactor / (4 * Math.PI * rho2);
+      const bx = k * vertical * state.s;
+      const by = -k * vertical * state.c;
+      const bz = k * across;
+      return { bx, by, bz, mag: Math.hypot(bx, by, bz) };
+    }
+
+    function finiteField(x, y) {
+      let bx = 0, by = 0, bz = 0;
+      for (const f of state.filaments) {
+        const b = filamentField(x, y, f.eta, f.zSource, f.current);
+        bx += b.bx; by += b.by; bz += b.bz;
+      }
+      return { bx, by, bz, mag: Math.hypot(bx, by, bz) };
+    }
+
+    function thinField(x, y) {
+      return filamentField(x, y, 0, -state.thickness / 2, state.current);
+    }
+
+    function displayField(finite, thin) {
+      if (state.mapModel === 'finite') return finite;
+      if (state.mapModel === 'thin') return thin;
+      const bx = finite.bx - thin.bx;
+      const by = finite.by - thin.by;
+      const bz = finite.bz - thin.bz;
+      return { bx, by, bz, mag: finite.mag - thin.mag };
+    }
+
+    function computeGrid() {
+      const { nx, ny } = state.cfg;
+      const finite = Object.fromEntries(KEYS.map(key => [key, new Float64Array(nx * ny)]));
+      const thin = Object.fromEntries(KEYS.map(key => [key, new Float64Array(nx * ny)]));
+      const shown = Object.fromEntries(KEYS.map(key => [key, new Float64Array(nx * ny)]));
+      const extrema = Object.fromEntries(KEYS.map(key => [key, { min: Infinity, max: -Infinity, maxAbs: 0 }]));
+      let maxFinite = { value: -Infinity, x: 0, y: 0 };
+      for (let j = 0; j < ny; j++) {
+        const y = state.yHalf - 2 * state.yHalf * j / (ny - 1);
+        for (let i = 0; i < nx; i++) {
+          const x = -state.xHalf + 2 * state.xHalf * i / (nx - 1);
+          const f = finiteField(x, y), t = thinField(x, y), d = displayField(f, t);
+          const k = j * nx + i;
+          for (const key of KEYS) {
+            finite[key][k] = f[key]; thin[key][k] = t[key]; shown[key][k] = d[key];
+            extrema[key].min = Math.min(extrema[key].min, d[key]);
+            extrema[key].max = Math.max(extrema[key].max, d[key]);
+            extrema[key].maxAbs = Math.max(extrema[key].maxAbs, Math.abs(d[key]));
+          }
+          if (f.mag > maxFinite.value) maxFinite = { value: f.mag, x, y };
+        }
+      }
+      grid = { nx, ny, finite, thin, shown, extrema, maxFinite };
+    }
+
+    function profileVector() {
+      if (state.profileDirection === 'parallel') return { x: state.c, y: state.s, name: '沿导线方向' };
+      if (state.profileDirection === 'x') return { x: 1, y: 0, name: '全局 X 方向' };
+      if (state.profileDirection === 'y') return { x: 0, y: 1, name: '全局 Y 方向' };
+      return { x: -state.s, y: state.c, name: '垂直导线方向' };
+    }
+
+    function computeProfile() {
+      const count = state.cfg.profile;
+      const q = new Float64Array(count);
+      const finite = Object.fromEntries(KEYS.map(key => [key, new Float64Array(count)]));
+      const thin = Object.fromEntries(KEYS.map(key => [key, new Float64Array(count)]));
+      const p = profileVector();
+      let maxDifference = 0, maxFiniteMagnitude = 0;
+      for (let i = 0; i < count; i++) {
+        const distance = -state.profileHalf + 2 * state.profileHalf * i / (count - 1);
+        const f = finiteField(distance * p.x, distance * p.y);
+        const t = thinField(distance * p.x, distance * p.y);
+        q[i] = distance;
+        for (const key of KEYS) { finite[key][i] = f[key]; thin[key][i] = t[key]; }
+        maxDifference = Math.max(maxDifference, Math.hypot(f.bx - t.bx, f.by - t.by, f.bz - t.bz));
+        maxFiniteMagnitude = Math.max(maxFiniteMagnitude, f.mag);
+      }
+      profile = { q, finite, thin, vector: p, error: maxFiniteMagnitude > 0 ? maxDifference / maxFiniteMagnitude * 100 : 0 };
+    }
+
+    function canvasSetup(canvas) {
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const rect = canvas.getBoundingClientRect();
+      const width = Math.max(250, Math.round(rect.width));
+      const height = Math.max(250, Math.round(rect.height));
+      canvas.width = Math.round(width * dpr);
+      canvas.height = Math.round(height * dpr);
+      const ctx = canvas.getContext('2d');
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      return { ctx, width, height };
+    }
+
+    function theme() {
+      const style = getComputedStyle(document.documentElement);
+      const get = name => style.getPropertyValue(name).trim();
+      return { surface: get('--surface'), text: get('--text'), muted: get('--muted'), grid: get('--grid'), axis: get('--axis'), wire: get('--wire'), finite: get('--finite'), thin: get('--thin') };
+    }
+
+    function sequential(t) {
+      t = Math.max(0, Math.min(1, t));
+      const stops = [[0, [30, 18, 75]], [.2, [37, 84, 174]], [.42, [25, 167, 184]], [.64, [111, 211, 87]], [.82, [249, 193, 47]], [1, [180, 22, 30]]];
+      for (let i = 1; i < stops.length; i++) {
+        if (t <= stops[i][0]) {
+          const [p0, c0] = stops[i - 1], [p1, c1] = stops[i], u = (t - p0) / (p1 - p0);
+          return c0.map((v, k) => Math.round(v + (c1[k] - v) * u));
+        }
+      }
+      return stops.at(-1)[1];
+    }
+
+    function formatField(value) {
+      const a = Math.abs(value);
+      if (!Number.isFinite(value)) return '—';
+      if (a >= 1) return `${value.toFixed(4)} T`;
+      if (a >= 1e-3) return `${(value * 1e3).toFixed(4)} mT`;
+      if (a >= 1e-6) return `${(value * 1e6).toFixed(4)} μT`;
+      if (a >= 1e-9) return `${(value * 1e9).toFixed(4)} nT`;
+      if (a === 0) return '0 T';
+      return `${value.toExponential(3)} T`;
+    }
+
+    function compactField(value) {
+      const a = Math.abs(value);
+      if (a >= 1e-3) return `${(value * 1e3).toFixed(1)}mT`;
+      if (a >= 1e-6) return `${(value * 1e6).toFixed(1)}μT`;
+      if (a >= 1e-9) return `${(value * 1e9).toFixed(1)}nT`;
+      if (a === 0) return '0';
+      return value.toExponential(1);
+    }
+
+    function drawAxes(ctx, width, height, margin, colors) {
+      const pw = width - margin.left - margin.right, ph = height - margin.top - margin.bottom;
+      ctx.save(); ctx.font = '11px system-ui'; ctx.fillStyle = colors.muted; ctx.strokeStyle = colors.axis; ctx.lineWidth = 1;
+      for (let i = 0; i <= 4; i++) {
+        const px = margin.left + pw * i / 4;
+        const x = (-state.xHalf + 2 * state.xHalf * i / 4) / UM;
+        ctx.beginPath(); ctx.moveTo(px, margin.top + ph); ctx.lineTo(px, margin.top + ph + 4); ctx.stroke();
+        ctx.textAlign = 'center'; ctx.fillText(x.toFixed(Math.abs(x) < 10 ? 2 : 1), px, height - margin.bottom + 18);
+      }
+      for (let j = 0; j <= 4; j++) {
+        const py = margin.top + ph * j / 4;
+        const y = (state.yHalf - 2 * state.yHalf * j / 4) / UM;
+        ctx.beginPath(); ctx.moveTo(margin.left - 4, py); ctx.lineTo(margin.left, py); ctx.stroke();
+        ctx.textAlign = 'right'; ctx.fillText(y.toFixed(Math.abs(y) < 10 ? 2 : 1), margin.left - 6, py + 4);
+      }
+      ctx.strokeStyle = colors.axis; ctx.strokeRect(margin.left, margin.top, pw, ph);
+      ctx.fillStyle = colors.text; ctx.textAlign = 'center'; ctx.fillText('X (μm)', margin.left + pw / 2, height - 7);
+      ctx.save(); ctx.translate(13, margin.top + ph / 2); ctx.rotate(-Math.PI / 2); ctx.fillText('Y (μm)', 0, 0); ctx.restore();
+      ctx.restore();
+    }
+
+    function drawWireFootprint(ctx, xToPx, yToPx, colors) {
+      const a = state.length / 2, b = state.width / 2;
+      const corners = [
+        { x: -a * state.c - b * state.s, y: -a * state.s + b * state.c },
+        { x:  a * state.c - b * state.s, y:  a * state.s + b * state.c },
+        { x:  a * state.c + b * state.s, y:  a * state.s - b * state.c },
+        { x: -a * state.c + b * state.s, y: -a * state.s - b * state.c }
+      ];
+      ctx.save();
+      ctx.globalAlpha = .95; ctx.strokeStyle = colors.text; ctx.lineWidth = 1.4; ctx.setLineDash([5, 3]);
+      ctx.beginPath();
+      corners.forEach((p, i) => i ? ctx.lineTo(xToPx(p.x), yToPx(p.y)) : ctx.moveTo(xToPx(p.x), yToPx(p.y)));
+      ctx.closePath(); ctx.stroke();
+      ctx.restore();
+    }
+
+    function drawColorBar(ctx, width, height, margin, key, scale, colors) {
+      const x = width - margin.right + 11, y = margin.top, w = 10, h = height - margin.top - margin.bottom;
+      const signed = key !== 'mag' || state.mapModel === 'difference';
+      for (let i = 0; i < h; i++) {
+        const f = 1 - i / Math.max(1, h - 1);
+        const color = sequential(f);
+        ctx.fillStyle = `rgb(${color.join(',')})`; ctx.fillRect(x, y + i, w, 1);
+      }
+      ctx.strokeStyle = colors.axis; ctx.strokeRect(x, y, w, h);
+      ctx.fillStyle = colors.text; ctx.font = '9px system-ui'; ctx.textAlign = 'left';
+      ctx.fillText(compactField(scale), x + w + 3, y + 8);
+      if (signed) ctx.fillText('0', x + w + 3, y + h / 2 + 3);
+      ctx.fillText(signed ? compactField(-scale) : '0', x + w + 3, y + h);
+    }
+
+    function drawHeatmap(canvas, key) {
+      const { ctx, width, height } = canvasSetup(canvas), colors = theme();
+      const margin = { left: 49, right: 73, top: 12, bottom: 43 };
+      const pw = width - margin.left - margin.right, ph = height - margin.top - margin.bottom;
+      if (pw < 40 || ph < 40) return;
+      const componentMax = Math.max(grid.extrema.bx.maxAbs, grid.extrema.by.maxAbs, grid.extrema.bz.maxAbs, 1e-30);
+      const scale = key === 'mag' && state.mapModel !== 'difference' ? Math.max(grid.extrema.mag.max, 1e-30) : state.fixedComponentScale && key !== 'mag' ? componentMax : Math.max(grid.extrema[key].maxAbs, 1e-30);
+      const signed = key !== 'mag' || state.mapModel === 'difference';
+      const values = grid.shown[key];
+      const image = document.createElement('canvas'); image.width = grid.nx; image.height = grid.ny;
+      const ictx = image.getContext('2d'), pixels = ictx.createImageData(grid.nx, grid.ny);
+      for (let k = 0; k < values.length; k++) {
+        const color = signed ? sequential(0.5 + 0.5 * values[k] / scale) : sequential(Math.sqrt(Math.max(0, values[k] / scale)));
+        pixels.data[4 * k] = color[0]; pixels.data[4 * k + 1] = color[1]; pixels.data[4 * k + 2] = color[2]; pixels.data[4 * k + 3] = 255;
+      }
+      ictx.putImageData(pixels, 0, 0);
+      ctx.fillStyle = colors.surface; ctx.fillRect(0, 0, width, height);
+      ctx.imageSmoothingEnabled = true; ctx.drawImage(image, margin.left, margin.top, pw, ph);
+      drawAxes(ctx, width, height, margin, colors);
+      const xToPx = x => margin.left + (x + state.xHalf) / (2 * state.xHalf) * pw;
+      const yToPx = y => margin.top + (state.yHalf - y) / (2 * state.yHalf) * ph;
+      ctx.save(); ctx.beginPath(); ctx.rect(margin.left, margin.top, pw, ph); ctx.clip();
+      drawWireFootprint(ctx, xToPx, yToPx, colors);
+      if (probe) {
+        const px = xToPx(probe.x), py = yToPx(probe.y);
+        ctx.strokeStyle = colors.text; ctx.lineWidth = 1.3;
+        ctx.beginPath(); ctx.arc(px, py, 6, 0, Math.PI * 2); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(px - 9, py); ctx.lineTo(px + 9, py); ctx.moveTo(px, py - 9); ctx.lineTo(px, py + 9); ctx.stroke();
+      }
+      ctx.restore();
+      drawColorBar(ctx, width, height, margin, key, scale, colors);
+      canvas._plot = { margin, pw, ph };
+      const id = `range${key === 'mag' ? 'Mag' : key[0].toUpperCase() + key.slice(1)}`;
+      $(id).textContent = signed ? `± ${formatField(scale)}` : `0 – ${formatField(scale)}`;
+    }
+
+    function wireBandHalf(vector) {
+      const along = Math.abs(vector.x * state.c + vector.y * state.s);
+      const across = Math.abs(-vector.x * state.s + vector.y * state.c);
+      const aLimit = along > 1e-12 ? state.length / (2 * along) : Infinity;
+      const bLimit = across > 1e-12 ? state.width / (2 * across) : Infinity;
+      return Math.min(aLimit, bLimit);
+    }
+
+    function drawLineChart(canvas, key) {
+      const { ctx, width, height } = canvasSetup(canvas), colors = theme();
+      const margin = { left: 74, right: 20, top: 19, bottom: 48 };
+      const pw = width - margin.left - margin.right, ph = height - margin.top - margin.bottom;
+      const f = profile.finite[key], t = profile.thin[key];
+      let ymin, ymax;
+      if (key === 'mag') {
+        ymin = 0; ymax = 0;
+        for (let i = 0; i < f.length; i++) ymax = Math.max(ymax, f[i], t[i]);
+        ymax = Math.max(ymax * 1.08, 1e-18);
+      } else {
+        let maxAbs = 0;
+        for (let i = 0; i < f.length; i++) maxAbs = Math.max(maxAbs, Math.abs(f[i]), Math.abs(t[i]));
+        maxAbs = Math.max(maxAbs * 1.08, 1e-18); ymin = -maxAbs; ymax = maxAbs;
+      }
+      ctx.fillStyle = colors.surface; ctx.fillRect(0, 0, width, height);
+      ctx.save(); ctx.font = '11px system-ui'; ctx.strokeStyle = colors.grid; ctx.fillStyle = colors.muted; ctx.lineWidth = 1;
+      for (let i = 0; i <= 4; i++) {
+        const px = margin.left + pw * i / 4, q = (-state.profileHalf + 2 * state.profileHalf * i / 4) / UM;
+        ctx.beginPath(); ctx.moveTo(px, margin.top); ctx.lineTo(px, margin.top + ph); ctx.stroke();
+        ctx.textAlign = 'center'; ctx.fillText(q.toFixed(Math.abs(q) < 10 ? 2 : 1), px, height - margin.bottom + 18);
+      }
+      for (let j = 0; j <= 4; j++) {
+        const py = margin.top + ph * j / 4, value = ymax - (ymax - ymin) * j / 4;
+        ctx.beginPath(); ctx.moveTo(margin.left, py); ctx.lineTo(margin.left + pw, py); ctx.stroke();
+        ctx.textAlign = 'right'; ctx.fillText(compactField(value), margin.left - 7, py + 4);
+      }
+      if (ymin < 0 && ymax > 0) {
+        const py = margin.top + ymax / (ymax - ymin) * ph;
+        ctx.strokeStyle = colors.axis; ctx.beginPath(); ctx.moveTo(margin.left, py); ctx.lineTo(margin.left + pw, py); ctx.stroke();
+      }
+      ctx.strokeStyle = colors.axis; ctx.strokeRect(margin.left, margin.top, pw, ph);
+      ctx.fillStyle = colors.text; ctx.textAlign = 'center'; ctx.fillText('剖面距离 q (μm)', margin.left + pw / 2, height - 7);
+      ctx.save(); ctx.translate(14, margin.top + ph / 2); ctx.rotate(-Math.PI / 2); ctx.fillText(`${key === 'mag' ? '|B|' : key.toUpperCase()} (T)`, 0, 0); ctx.restore();
+
+      const band = wireBandHalf(profile.vector);
+      if (Number.isFinite(band)) {
+        const left = margin.left + (-Math.min(band, state.profileHalf) + state.profileHalf) / (2 * state.profileHalf) * pw;
+        const right = margin.left + (Math.min(band, state.profileHalf) + state.profileHalf) / (2 * state.profileHalf) * pw;
+        ctx.globalAlpha = .12; ctx.fillStyle = colors.wire; ctx.fillRect(left, margin.top, right - left, ph); ctx.globalAlpha = 1;
+      }
+      ctx.restore();
+
+      const drawSeries = (values, color, dashed, lineWidth) => {
+        ctx.save(); ctx.strokeStyle = color; ctx.lineWidth = lineWidth; if (dashed) ctx.setLineDash([7, 5]); ctx.beginPath();
+        for (let i = 0; i < values.length; i++) {
+          const px = margin.left + (profile.q[i] + state.profileHalf) / (2 * state.profileHalf) * pw;
+          const py = margin.top + (ymax - values[i]) / (ymax - ymin) * ph;
+          if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+        }
+        ctx.stroke(); ctx.restore();
+      };
+      drawSeries(f, colors.finite, false, 2.3);
+      drawSeries(t, colors.thin, true, 1.8);
+    }
+
+    function renderProbe() {
+      if (!probe) {
+        $('probeReadout').textContent = '点击任一二维图可在四幅图上同步放置探针。';
+        return;
+      }
+      const f = finiteField(probe.x, probe.y), t = thinField(probe.x, probe.y);
+      $('probeReadout').textContent = `探针 x ${(probe.x / UM).toFixed(3)} μm，y ${(probe.y / UM).toFixed(3)} μm｜有限截面：Bx ${formatField(f.bx)}，By ${formatField(f.by)}，Bz ${formatField(f.bz)}，|B| ${formatField(f.mag)}｜细线 |B| ${formatField(t.mag)}`;
+    }
+
+    function renderSummary() {
+      const center = finiteField(0, 0);
+      $('centerMagnitude').textContent = formatField(center.mag);
+      $('centerComponents').textContent = `Bx ${formatField(center.bx)} · By ${formatField(center.by)} · Bz ${formatField(center.bz)}`;
+      $('maximumMagnitude').textContent = formatField(grid.maxFinite.value);
+      $('maximumPosition').textContent = `x ${(grid.maxFinite.x / UM).toFixed(2)} · y ${(grid.maxFinite.y / UM).toFixed(2)} μm`;
+      $('profileError').textContent = `${profile.error.toFixed(3)} %`;
+      $('centerDistance').textContent = `${((state.height + state.thickness / 2) / UM).toFixed(3)} μm`;
+      const mode = orientationMode === 'x' ? '沿 X' : orientationMode === 'y' ? '沿 Y' : `倾斜 ${state.angleDeg.toFixed(2)}°`;
+      $('orientationLabel').textContent = `${mode} · u = (${state.c.toFixed(3)}, ${state.s.toFixed(3)})`;
+      const modelNames = { finite: '有限矩形截面', thin: '有限长理想细线', difference: '有限截面与细线的差值' };
+      $('mapSubtitle').textContent = `${modelNames[state.mapModel]} · z = h = ${(state.height / UM).toFixed(3)} μm（相对上表面）`;
+      $('magMapTitle').textContent = state.mapModel === 'difference' ? 'Δ|B|' : '|B|';
+      $('profileSubtitle').textContent = `${profile.vector.name} · h = ${(state.height / UM).toFixed(3)} μm · 有限截面为实线，理想细线为虚线。`;
+
+      const status = $('modelStatus'); status.className = 'model-status';
+      if (profile.error <= 1) { status.classList.add('good'); status.textContent = `细线近似非常接近：当前剖面的矢量归一化最大差异为 ${profile.error.toFixed(3)}%。`; }
+      else if (profile.error <= 5) { status.classList.add('warn'); status.textContent = `细线近似可用于趋势估算：当前剖面的矢量归一化最大差异为 ${profile.error.toFixed(3)}%。`; }
+      else { status.classList.add('bad'); status.textContent = `细线近似偏差明显：当前剖面的矢量归一化最大差异为 ${profile.error.toFixed(3)}%，应采用有限截面结果。`; }
+    }
+
+    function renderAll() {
+      renderSummary();
+      for (const key of KEYS) drawHeatmap($(`map${key === 'mag' ? 'Mag' : key[0].toUpperCase() + key.slice(1)}`), key);
+      for (const key of KEYS) drawLineChart($(`line${key === 'mag' ? 'Mag' : key[0].toUpperCase() + key.slice(1)}`), key);
+      renderProbe();
+    }
+
+    function calculate() {
+      const start = performance.now();
+      try {
+        state = readParameters();
+        buildFilaments(state);
+        probe = null;
+        computeGrid();
+        computeProfile();
+        renderAll();
+        const elapsed = performance.now() - start;
+        $('formError').textContent = '';
+        const footprintX = Math.abs(state.length * state.c / 2) + Math.abs(state.width * state.s / 2);
+        const footprintY = Math.abs(state.length * state.s / 2) + Math.abs(state.width * state.c / 2);
+        const cropWarning = state.xHalf < footprintX || state.yHalf < footprintY ? ' · 当前显示范围裁切了部分导线' : '';
+        $('calculationStatus').textContent = `计算完成 · ${state.cfg.nw} × ${state.cfg.nt} 截面高斯求积 · ${grid.nx} × ${grid.ny} 网格 · ${elapsed.toFixed(0)} ms${cropWarning}`;
+      } catch (error) {
+        $('formError').textContent = error.message;
+        $('calculationStatus').textContent = '参数有误，未执行计算。';
+      }
+    }
+
+    function autoRange() {
+      try {
+        const angleDeg = orientationMode === 'x' ? 0 : orientationMode === 'y' ? 90 : numeric('angle', '倾斜角度');
+        const angle = angleDeg * Math.PI / 180, c = Math.cos(angle), s = Math.sin(angle);
+        const length = numeric('length', '导线长度'), width = numeric('width', '导线宽度'), height = numeric('height', '观察高度');
+        const footprintX = Math.abs(length * c / 2) + Math.abs(width * s / 2);
+        const footprintY = Math.abs(length * s / 2) + Math.abs(width * c / 2);
+        const padding = Math.max(width * 1.5, height * 4, length * .12);
+        $('xHalf').value = Math.max(footprintX + padding, width * 2).toFixed(2);
+        $('yHalf').value = Math.max(footprintY + padding, width * 2).toFixed(2);
+        $('profileHalf').value = Math.max(width * 3, height * 6, length * .35).toFixed(2);
+        $('formError').textContent = '';
+      } catch (error) { $('formError').textContent = error.message; }
+    }
+
+    $('parameterForm').addEventListener('submit', event => {
+      event.preventDefault();
+      $('calculationStatus').textContent = '正在计算有限截面与理想细线模型…';
+      requestAnimationFrame(() => setTimeout(calculate, 20));
+    });
+
+    document.querySelectorAll('[data-orientation]').forEach(button => {
+      button.addEventListener('click', () => {
+        orientationMode = button.dataset.orientation;
+        document.querySelectorAll('[data-orientation]').forEach(item => item.setAttribute('aria-pressed', String(item === button)));
+        $('angleField').classList.toggle('hidden', orientationMode !== 'angle');
+      });
+    });
+
+    $('autoRangeButton').addEventListener('click', autoRange);
+
+    document.querySelectorAll('canvas[data-key][id^="map"]').forEach(canvas => {
+      canvas.addEventListener('pointerdown', event => {
+        if (!state || !canvas._plot) return;
+        const rect = canvas.getBoundingClientRect(), plot = canvas._plot;
+        const px = event.clientX - rect.left, py = event.clientY - rect.top;
+        probe = {
+          x: Math.max(-state.xHalf, Math.min(state.xHalf, (px - plot.margin.left) / plot.pw * 2 * state.xHalf - state.xHalf)),
+          y: Math.max(-state.yHalf, Math.min(state.yHalf, state.yHalf - (py - plot.margin.top) / plot.ph * 2 * state.yHalf))
+        };
+        for (const key of KEYS) drawHeatmap($(`map${key === 'mag' ? 'Mag' : key[0].toUpperCase() + key.slice(1)}`), key);
+        renderProbe();
+      });
+    });
+
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => { if (state && grid && profile) renderAll(); }, 140);
+    });
+
+    const themeMedia = matchMedia('(prefers-color-scheme: dark)');
+    themeMedia.addEventListener?.('change', () => { if (state && grid && profile) renderAll(); });
+    if (sessionStorage.getItem(SESSION_KEY) === 'ok') unlock();
+  </script>
+</body>
+</html>
