@@ -12,6 +12,10 @@ https://leigui300421-creator.github.io/my-website/
 
 https://leigui300421-creator.github.io/my-website/wire_model_ampacity_evaluator.html
 
+双图像 ROI 特征分析器：
+
+https://leigui300421-creator.github.io/my-website/image-roi-analyzer.html
+
 ## 文件结构
 
 ```text
@@ -20,6 +24,7 @@ my-website/
 ├── wire_model_ampacity_evaluator.html # 导线模型适用性与载流能力评估器
 ├── Two_wire_magnetic_simulator.html   # 矩形截面双导线交互仿真
 ├── NV_current_magnetic_imaging_evaluator.html # NV宽场芯片电流磁成像探测能力评估
+├── image-roi-analyzer.html # 光学图与磁场分量图 ROI 特征分析器
 ├── images/          # 网页使用的图片，可选
 ├── README.md        # 项目说明
 └── .gitignore       # Git 忽略规则
@@ -46,6 +51,18 @@ my-website/
 `NV_current_magnetic_imaging_evaluator.html` 面向科研项目指标可行性评审。页面以前置理论分析说明磁灵敏度、磁场检测阈值、电流到磁场传递系数及指定线间距的双极SNR判据，并支持有限宽直导线、无限细直导线、反向平行线对、等效电流环和有限折线路径。
 
 评估器可在磁灵敏度、电流、总距离、积分时间与SNR之间双向反推，输出最大探测深度、最小所需电流、允许的最大磁灵敏度数值、最短积分时间及完整评估报告。反向线对模式按用户给定的边缘间距判断是否达到可区分的磁场SNR，不搜索最小边缘间距。
+
+## 双图像 ROI 特征分析
+
+`image-roi-analyzer.html` 用于同步读取同尺寸的光学图 A 与磁场分量图 B，支持 TIFF、PNG、JPEG、WebP 和 BMP。文件仅在浏览器本地处理；TIFF 分析保留原始数值，普通图片按浏览器解码后的 8 位亮度参与计算。
+
+在图 A 上纵向拖动可选择覆盖全部列的蓝色行 ROI，对每一列求平均，得到沿原图 x 方向的曲线；横向拖动可选择覆盖全部行的红色列 ROI，对每一行求平均，得到沿原图 y 方向的曲线。两种 ROI、曲线和分析结果始终同时显示，并同步叠加在图 A、图 B 上。
+
+分析器自动计算图 A 主峰的 FWHM 中点，并在图 B 的全局极大值与全局极小值之间插值求零点，同时输出横向绝对差值 `|Δx|`、纵向绝对差值 `|Δy|` 和二维合成位置差 `√(Δx² + Δy²)`。页面会对尺寸不一致、主峰不显著、缺少半高交点、极值未跨零以及多零交点等情况给出警告。
+
+当前选区只实时更新计算结果；输入结果名称并点击“保存本次结果”后才会写入统计表。统计表最多保留 5 组 A/B 图像，每组最多 5 次不同选区的结果，即最多 25 条数据，并支持删除单条记录、删除整组和清空统计。统计数据保存在当前浏览器会话中。
+
+访问密码为 `123456`。密码校验在静态网页前端完成，并在当前浏览器会话中保留解锁状态；它只能减少普通访问，不能替代服务端身份验证。
 
 ## 本地查看
 
