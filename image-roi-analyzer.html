@@ -600,7 +600,7 @@
           <p id="statisticsSummary">已保存 0/25 条 · 0/5 组图像</p>
         </div>
         <div class="statistics-actions">
-          <button class="secondary-button" id="exportReport" type="button" disabled>导出报告</button>
+          <button class="secondary-button" id="exportReport" type="button" disabled>打印 PDF 报告</button>
           <button class="secondary-button danger" id="clearStatistics" type="button" disabled>清空统计</button>
         </div>
       </div>
@@ -948,8 +948,8 @@
       return canvas.toDataURL('image/jpeg', .9);
     }
 
-    function reportTableRows(group) {
-      return group.records.map((record, index) => '<tr>' +
+    function reportTableRow(record, index) {
+      return '<tr>' +
         '<td>' + (index + 1) + '</td>' +
         '<td><strong>' + escapeHtml(record.name) + '</strong></td>' +
         '<td>' + record.roiH[0] + '–' + record.roiH[1] + ' px</td>' +
@@ -957,7 +957,7 @@
         '<td class="num">' + record.dx.toFixed(2) + ' px</td>' +
         '<td class="num">' + record.dy.toFixed(2) + ' px</td>' +
         '<td class="num"><strong>' + record.distance.toFixed(2) + ' px</strong></td>' +
-        '</tr>').join('');
+        '</tr>';
     }
 
     async function reportGroupSection(group, index) {
@@ -969,30 +969,41 @@
           snapshots = await loadGroupSnapshots(group.id);
         } catch (_) {}
       }
-      let imageA = '', imageB = '';
-      if (snapshots) {
-        try { [imageA, imageB] = await Promise.all([markedSnapshotDataUrl(snapshots.imageA, group), markedSnapshotDataUrl(snapshots.imageB, group)]); } catch (_) {}
+      const resultSections = [];
+      for (let recordIndex = 0; recordIndex < group.records.length; recordIndex++) {
+        const record = group.records[recordIndex];
+        let imageA = '', imageB = '';
+        if (snapshots) {
+          const singleResultGroup = { ...group, records: [record] };
+          try { [imageA, imageB] = await Promise.all([markedSnapshotDataUrl(snapshots.imageA, singleResultGroup), markedSnapshotDataUrl(snapshots.imageB, singleResultGroup)]); } catch (_) {}
+        }
+        const imageMarkup = imageA && imageB
+          ? '<div class="images"><figure><img src="' + imageA + '" alt="光学图 A 选区标记"><figcaption>光学图 A · 本次选区</figcaption></figure><figure><img src="' + imageB + '" alt="磁场分量图 B 选区标记"><figcaption>磁场分量图 B · 本次选区</figcaption></figure></div>'
+          : '<p class="snapshot-warning">此结果缺少本地视图快照，仅导出数值。重新载入该组 A/B 图片并再次保存任一结果后可补全快照。</p>';
+        resultSections.push('<article class="result"><h3>' + (recordIndex + 1) + '. ' + escapeHtml(record.name) + '</h3>' +
+          imageMarkup +
+          '<div class="table-wrap"><table><thead><tr><th>序号</th><th>结果名称</th><th>行 ROI</th><th>列 ROI</th><th>|Δx|</th><th>|Δy|</th><th>合成位置差</th></tr></thead><tbody>' + reportTableRow(record, recordIndex) + '</tbody></table></div></article>');
       }
-      const imageMarkup = imageA && imageB
-        ? '<div class="images"><figure><img src="' + imageA + '" alt="光学图 A 选区标记"><figcaption>光学图 A</figcaption></figure><figure><img src="' + imageB + '" alt="磁场分量图 B 选区标记"><figcaption>磁场分量图 B</figcaption></figure></div>'
-        : '<p class="snapshot-warning">此图像组缺少本地视图快照，仅导出数值结果。重新载入该组 A/B 图片并再次保存任一结果后可补全快照。</p>';
       return '<section class="group"><h2>图像组 ' + (index + 1) + '</h2>' +
         '<p class="meta">A：' + escapeHtml(group.aName) + '　 B：' + escapeHtml(group.bName) + '　 尺寸：' + group.width + ' × ' + group.height + ' px</p>' +
-        '<p class="legend"><span class="blue"></span>蓝色：行 ROI　<span class="red"></span>红色：列 ROI　圆形编号与表格序号对应</p>' +
-        imageMarkup +
-        '<div class="table-wrap"><table><thead><tr><th>序号</th><th>结果名称</th><th>行 ROI</th><th>列 ROI</th><th>|Δx|</th><th>|Δy|</th><th>合成位置差</th></tr></thead><tbody>' + reportTableRows(group) + '</tbody></table></div></section>';
+        '<p class="legend"><span class="blue"></span>蓝色：行 ROI　<span class="red"></span>红色：列 ROI　每次保存结果独立对应一对图像</p>' +
+        resultSections.join('') + '</section>';
     }
 
     function reportDocument(sections, total) {
       const generatedAt = new Date().toLocaleString('zh-CN', { hour12: false });
       return '<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>双图像 ROI 特征分析报告</title><style>' +
-        '*{box-sizing:border-box}body{margin:0;color:#13243a;background:#eef3f7;font-family:Arial,"Microsoft YaHei",sans-serif;line-height:1.55}.page{width:min(1200px,calc(100% - 32px));margin:auto;padding:32px 0 60px}.report-head{display:flex;justify-content:space-between;gap:20px;align-items:flex-start;margin-bottom:22px;padding:24px;color:#fff;background:#102a43;border-radius:16px}.report-head h1{margin:0 0 8px;font-size:28px}.report-head p{margin:0;color:#bed2e2;font-size:13px}.print{padding:9px 14px;color:#102a43;background:#fff;border:0;border-radius:9px;font-weight:700;cursor:pointer}.group{margin:0 0 22px;padding:20px;background:#fff;border:1px solid #dfe6ee;border-radius:16px;break-inside:avoid}.group h2{margin:0 0 5px;font-size:20px}.meta,.legend{margin:5px 0;color:#637287;font-size:12px}.legend span{display:inline-block;width:15px;height:7px;margin-right:4px;border-radius:2px}.legend .blue{background:#1686e8}.legend .red{background:#ef4b4f}.images{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:15px 0}.images figure{margin:0;padding:8px;background:#0f1b29;border-radius:10px}.images img{display:block;width:100%;height:auto;max-height:520px;object-fit:contain}.images figcaption{padding:7px 2px 0;color:#dce8f2;text-align:center;font-size:12px}.snapshot-warning{padding:13px;color:#8b5100;background:#fff7e7;border:1px solid #f3d8a2;border-radius:9px}.table-wrap{overflow-x:auto}table{width:100%;border-collapse:collapse;font-size:12px}th,td{padding:9px 10px;border-bottom:1px solid #dfe6ee;text-align:left;white-space:nowrap}th{color:#637287;background:#f4f7fa}.num{text-align:right;font-variant-numeric:tabular-nums}@media(max-width:720px){.report-head{flex-direction:column}.images{grid-template-columns:1fr}}@media print{body{background:#fff}.page{width:100%;padding:0}.print{display:none}.group{box-shadow:none;break-inside:avoid}.images img{max-height:420px}}</style></head><body><main class="page"><header class="report-head"><div><h1>双图像 ROI 特征分析报告</h1><p>共 ' + statistics.length + ' 组图像，' + total + ' 条选区结果　·　生成时间：' + generatedAt + '</p></div><button class="print" onclick="window.print()">打印或保存为 PDF</button></header>' + sections.join('') + '</main></body></html>';
+        '*{box-sizing:border-box}body{margin:0;color:#13243a;background:#eef3f7;font-family:Arial,"Microsoft YaHei",sans-serif;line-height:1.55}.page{width:min(1200px,calc(100% - 32px));margin:auto;padding:32px 0 60px}.report-head{display:flex;justify-content:space-between;gap:20px;align-items:flex-start;margin-bottom:22px;padding:24px;color:#fff;background:#102a43;border-radius:16px}.report-head h1{margin:0 0 8px;font-size:28px}.report-head p{margin:0;color:#bed2e2;font-size:13px}.print{padding:9px 14px;color:#102a43;background:#fff;border:0;border-radius:9px;font-weight:700;cursor:pointer}.group{margin:0 0 22px;padding:20px;background:#fff;border:1px solid #dfe6ee;border-radius:16px}.group h2{margin:0 0 5px;font-size:20px}.result{margin-top:18px;padding-top:16px;border-top:2px solid #e5ebf1;break-inside:avoid}.result h3{margin:0;color:#102a43;font-size:16px}.meta,.legend{margin:5px 0;color:#637287;font-size:12px}.legend span{display:inline-block;width:15px;height:7px;margin-right:4px;border-radius:2px}.legend .blue{background:#1686e8}.legend .red{background:#ef4b4f}.images{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:15px 0}.images figure{margin:0;padding:8px;background:#0f1b29;border-radius:10px}.images img{display:block;width:100%;height:auto;max-height:520px;object-fit:contain}.images figcaption{padding:7px 2px 0;color:#dce8f2;text-align:center;font-size:12px}.snapshot-warning{padding:13px;color:#8b5100;background:#fff7e7;border:1px solid #f3d8a2;border-radius:9px}.table-wrap{overflow-x:auto}table{width:100%;border-collapse:collapse;font-size:12px}th,td{padding:9px 10px;border-bottom:1px solid #dfe6ee;text-align:left;white-space:nowrap}th{color:#637287;background:#f4f7fa}.num{text-align:right;font-variant-numeric:tabular-nums}@media(max-width:720px){.report-head{flex-direction:column}.images{grid-template-columns:1fr}}@media print{body{background:#fff}.page{width:100%;padding:0}.print{display:none}.group{box-shadow:none}.result{break-inside:avoid;page-break-inside:avoid}.images img{max-height:420px}}</style></head><body><main class="page"><header class="report-head"><div><h1>双图像 ROI 特征分析报告</h1><p>共 ' + statistics.length + ' 组图像，' + total + ' 条选区结果　·　生成时间：' + generatedAt + '</p></div><button class="print" onclick="window.print()">打印或保存为 PDF</button></header>' + sections.join('') + '</main></body></html>';
     }
 
-    function reportFilename() {
-      const date = new Date();
-      const pad = value => String(value).padStart(2, '0');
-      return 'ROI-analysis-report-' + date.getFullYear() + pad(date.getMonth() + 1) + pad(date.getDate()) + '-' + pad(date.getHours()) + pad(date.getMinutes()) + pad(date.getSeconds()) + '.html';
+    function waitForReportImages(reportWindow) {
+      const images = [...reportWindow.document.images];
+      return Promise.all(images.map(image => image.complete
+        ? Promise.resolve()
+        : new Promise(resolve => {
+            image.addEventListener('load', resolve, { once: true });
+            image.addEventListener('error', resolve, { once: true });
+          })));
     }
 
     function extOf(file) {
@@ -1627,6 +1638,13 @@
     $('exportReport').addEventListener('click', async () => {
       const button = $('exportReport');
       const originalText = button.textContent;
+      const reportWindow = window.open('', '_blank');
+      if (!reportWindow) {
+        setSaveFeedback('浏览器阻止了报告窗口，请允许本站打开弹出窗口后重试。', 'error');
+        return;
+      }
+      reportWindow.document.write('<!doctype html><html lang="zh-CN"><meta charset="utf-8"><title>正在生成报告</title><body style="font-family:Arial,Microsoft YaHei,sans-serif;padding:32px;color:#13243a">正在生成 PDF 报告，请稍候…</body></html>');
+      reportWindow.document.close();
       button.disabled = true;
       button.textContent = '正在生成…';
       setSaveFeedback('正在整理各图像组及选区标记，请稍候。');
@@ -1634,17 +1652,15 @@
         const sections = [];
         for (let index = 0; index < statistics.length; index++) sections.push(await reportGroupSection(statistics[index], index));
         const total = statistics.reduce((sum, group) => sum + group.records.length, 0);
-        const blob = new Blob([reportDocument(sections, total)], { type: 'text/html;charset=utf-8' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = reportFilename();
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-        setTimeout(() => URL.revokeObjectURL(url), 1000);
-        setSaveFeedback('报告已导出；打开 HTML 文件可查看、打印或另存为 PDF。', 'success');
+        reportWindow.document.open();
+        reportWindow.document.write(reportDocument(sections, total));
+        reportWindow.document.close();
+        await waitForReportImages(reportWindow);
+        reportWindow.focus();
+        reportWindow.print();
+        setSaveFeedback('PDF 报告已进入打印流程，请在系统窗口中选择“另存为 PDF”。', 'success');
       } catch (error) {
+        reportWindow.close();
         setSaveFeedback('报告导出失败：' + (error?.message || '未知错误'), 'error');
       } finally {
         button.textContent = originalText;
