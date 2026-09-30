@@ -385,6 +385,7 @@
 
     .statistics-card { margin-top: 18px; padding: 18px; }
     .statistics-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 14px; }
+    .statistics-actions { display: flex; gap: 9px; flex-wrap: wrap; }
     .statistics-head p { margin: 5px 0 0; color: var(--muted); font-size: 13px; }
     .secondary-button { min-height: 38px; padding: 7px 12px; color: var(--ink); background: #fff; border: 1px solid #c9d5e2; border-radius: 9px; font-weight: 750; cursor: pointer; }
     .secondary-button:hover:not(:disabled) { border-color: var(--blue); }
@@ -450,6 +451,7 @@
       .vector-result { align-items: flex-start; flex-direction: column; }
       .save-row { grid-template-columns: 1fr; }
       .statistics-head { align-items: flex-start; flex-direction: column; }
+      .statistics-actions { width: 100%; }
     }
   </style>
 </head>
@@ -597,7 +599,10 @@
           <h2>选区结果统计</h2>
           <p id="statisticsSummary">已保存 0/25 条 · 0/5 组图像</p>
         </div>
-        <button class="secondary-button danger" id="clearStatistics" type="button" disabled>清空统计</button>
+        <div class="statistics-actions">
+          <button class="secondary-button" id="exportReport" type="button" disabled>导出报告</button>
+          <button class="secondary-button danger" id="clearStatistics" type="button" disabled>清空统计</button>
+        </div>
       </div>
       <div class="statistics-empty" id="statisticsEmpty">尚未保存结果。输入名称并点击“保存本次结果”后，数据会显示在这里。</div>
       <div class="statistics-table-wrap" id="statisticsTableWrap" hidden>
@@ -610,7 +615,6 @@
               <th class="number">|Δx|</th>
               <th class="number">|Δy|</th>
               <th class="number">合成位置差</th>
-              <th>保存时间</th>
               <th>操作</th>
             </tr>
           </thead>
@@ -627,6 +631,8 @@
     const ACCESS_HASH = '8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92';
     const SESSION_KEY = 'image-roi-analyzer-access';
     const STATISTICS_KEY = 'image-roi-analyzer-statistics';
+    const SNAPSHOT_DB = 'image-roi-analyzer-snapshots';
+    const SNAPSHOT_STORE = 'group-images';
     const MAX_IMAGE_GROUPS = 5;
     const MAX_RESULTS_PER_GROUP = 5;
     const MAX_VIEW_W = 1200;
@@ -716,6 +722,83 @@
       sessionStorage.setItem(STATISTICS_KEY, JSON.stringify(statistics));
     }
 
+    function openSnapshotDatabase() {
+      return new Promise((resolve, reject) => {
+        if (!('indexedDB' in window)) {
+          reject(new Error('当前浏览器不支持图像快照存储'));
+          return;
+        }
+        const request = indexedDB.open(SNAPSHOT_DB, 1);
+        request.onupgradeneeded = () => {
+          const database = request.result;
+          if (!database.objectStoreNames.contains(SNAPSHOT_STORE)) database.createObjectStore(SNAPSHOT_STORE, { keyPath: 'id' });
+        };
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error || new Error('无法打开图像快照存储'));
+      });
+    }
+
+    function transactionDone(transaction) {
+      return new Promise((resolve, reject) => {
+        transaction.oncomplete = resolve;
+        transaction.onerror = () => reject(transaction.error || new Error('图像快照存储失败'));
+        transaction.onabort = () => reject(transaction.error || new Error('图像快照存储已中止'));
+      });
+    }
+
+    function canvasBlob(canvas, type = 'image/jpeg', quality = .9) {
+      return new Promise((resolve, reject) => canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('无法生成图像快照')), type, quality));
+    }
+
+    async function createSnapshotBlob(image) {
+      const scale = Math.min(1, 1400 / image.width, 1000 / image.height);
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.max(1, Math.round(image.width * scale));
+      canvas.height = Math.max(1, Math.round(image.height * scale));
+      const context = canvas.getContext('2d');
+      context.fillStyle = '#ffffff';
+      context.fillRect(0, 0, canvas.width, canvas.height);
+      context.drawImage(image.display, 0, 0, canvas.width, canvas.height);
+      return canvasBlob(canvas);
+    }
+
+    async function storeCurrentGroupSnapshots(groupId) {
+      const [imageA, imageB] = await Promise.all([createSnapshotBlob(state.A), createSnapshotBlob(state.B)]);
+      const database = await openSnapshotDatabase();
+      const transaction = database.transaction(SNAPSHOT_STORE, 'readwrite');
+      transaction.objectStore(SNAPSHOT_STORE).put({ id: groupId, imageA, imageB });
+      await transactionDone(transaction);
+      database.close();
+    }
+
+    async function loadGroupSnapshots(groupId) {
+      const database = await openSnapshotDatabase();
+      const transaction = database.transaction(SNAPSHOT_STORE, 'readonly');
+      const request = transaction.objectStore(SNAPSHOT_STORE).get(groupId);
+      const result = await new Promise((resolve, reject) => {
+        request.onsuccess = () => resolve(request.result || null);
+        request.onerror = () => reject(request.error || new Error('无法读取图像快照'));
+      });
+      database.close();
+      return result;
+    }
+
+    async function deleteGroupSnapshots(groupId) {
+      const database = await openSnapshotDatabase();
+      const transaction = database.transaction(SNAPSHOT_STORE, 'readwrite');
+      transaction.objectStore(SNAPSHOT_STORE).delete(groupId);
+      await transactionDone(transaction);
+      database.close();
+    }
+
+    async function clearGroupSnapshots() {
+      const database = await openSnapshotDatabase();
+      const transaction = database.transaction(SNAPSHOT_STORE, 'readwrite');
+      transaction.objectStore(SNAPSHOT_STORE).clear();
+      await transactionDone(transaction);
+      database.close();
+    }
+
     function currentPairKey() {
       if (!state.A?.file || !state.B?.file) return '';
       const fileKey = image => [image.file.name, image.file.size, image.file.lastModified, image.width, image.height].join(':');
@@ -757,6 +840,7 @@
       const total = statistics.reduce((sum, group) => sum + group.records.length, 0);
       $('statisticsSummary').textContent = '已保存 ' + total + '/25 条 · ' + statistics.length + '/5 组图像';
       $('clearStatistics').disabled = total === 0;
+      $('exportReport').disabled = total === 0;
       $('statisticsEmpty').hidden = total > 0;
       $('statisticsTableWrap').hidden = total === 0;
       const body = $('statisticsBody');
@@ -766,7 +850,7 @@
         const groupRow = document.createElement('tr');
         groupRow.className = 'group-row';
         const groupCell = document.createElement('td');
-        groupCell.colSpan = 8;
+        groupCell.colSpan = 7;
         const line = document.createElement('div');
         line.className = 'group-line';
         const info = document.createElement('div');
@@ -801,7 +885,6 @@
           const distanceStrong = document.createElement('strong');
           distanceStrong.textContent = record.distance.toFixed(2) + ' px';
           distanceCell.appendChild(distanceStrong);
-          appendStatisticsCell(row, new Date(record.savedAt).toLocaleString('zh-CN', { hour12: false }));
           const actionCell = appendStatisticsCell(row, '');
           const deleteRecord = document.createElement('button');
           deleteRecord.type = 'button';
@@ -814,6 +897,102 @@
           body.appendChild(row);
         });
       });
+    }
+
+    async function markedSnapshotDataUrl(blob, group) {
+      if (!blob) return '';
+      const bitmap = await createImageBitmap(blob);
+      const canvas = document.createElement('canvas');
+      canvas.width = bitmap.width;
+      canvas.height = bitmap.height;
+      const context = canvas.getContext('2d');
+      context.drawImage(bitmap, 0, 0);
+      bitmap.close?.();
+      const scaleX = canvas.width / group.width;
+      const scaleY = canvas.height / group.height;
+      const lineWidth = Math.max(2, Math.min(canvas.width, canvas.height) / 300);
+
+      group.records.forEach((record, index) => {
+        const horizontalY = record.roiH[0] * scaleY;
+        const horizontalHeight = Math.max(2, (record.roiH[1] - record.roiH[0] + 1) * scaleY);
+        const verticalX = record.roiV[0] * scaleX;
+        const verticalWidth = Math.max(2, (record.roiV[1] - record.roiV[0] + 1) * scaleX);
+
+        context.fillStyle = 'rgba(22, 134, 232, .08)';
+        context.strokeStyle = 'rgba(22, 134, 232, .78)';
+        context.lineWidth = lineWidth;
+        context.fillRect(0, horizontalY, canvas.width, horizontalHeight);
+        context.strokeRect(lineWidth / 2, horizontalY + lineWidth / 2, canvas.width - lineWidth, Math.max(1, horizontalHeight - lineWidth));
+
+        context.fillStyle = 'rgba(239, 75, 79, .07)';
+        context.strokeStyle = 'rgba(239, 75, 79, .78)';
+        context.fillRect(verticalX, 0, verticalWidth, canvas.height);
+        context.strokeRect(verticalX + lineWidth / 2, lineWidth / 2, Math.max(1, verticalWidth - lineWidth), canvas.height - lineWidth);
+
+        const markerX = Math.max(16, Math.min(canvas.width - 16, verticalX + verticalWidth / 2));
+        const markerY = Math.max(16, Math.min(canvas.height - 16, horizontalY + horizontalHeight / 2));
+        const radius = Math.max(11, Math.min(19, Math.min(canvas.width, canvas.height) / 35));
+        context.fillStyle = '#102a43';
+        context.strokeStyle = '#ffffff';
+        context.lineWidth = Math.max(2, lineWidth);
+        context.beginPath();
+        context.arc(markerX, markerY, radius, 0, Math.PI * 2);
+        context.fill();
+        context.stroke();
+        context.fillStyle = '#ffffff';
+        context.font = '700 ' + Math.round(radius * 1.05) + 'px Arial, sans-serif';
+        context.textAlign = 'center';
+        context.textBaseline = 'middle';
+        context.fillText(String(index + 1), markerX, markerY + .5);
+      });
+      return canvas.toDataURL('image/jpeg', .9);
+    }
+
+    function reportTableRows(group) {
+      return group.records.map((record, index) => '<tr>' +
+        '<td>' + (index + 1) + '</td>' +
+        '<td><strong>' + escapeHtml(record.name) + '</strong></td>' +
+        '<td>' + record.roiH[0] + '–' + record.roiH[1] + ' px</td>' +
+        '<td>' + record.roiV[0] + '–' + record.roiV[1] + ' px</td>' +
+        '<td class="num">' + record.dx.toFixed(2) + ' px</td>' +
+        '<td class="num">' + record.dy.toFixed(2) + ' px</td>' +
+        '<td class="num"><strong>' + record.distance.toFixed(2) + ' px</strong></td>' +
+        '</tr>').join('');
+    }
+
+    async function reportGroupSection(group, index) {
+      let snapshots = null;
+      try { snapshots = await loadGroupSnapshots(group.id); } catch (_) {}
+      if (!snapshots && currentPairKey() === group.key) {
+        try {
+          await storeCurrentGroupSnapshots(group.id);
+          snapshots = await loadGroupSnapshots(group.id);
+        } catch (_) {}
+      }
+      let imageA = '', imageB = '';
+      if (snapshots) {
+        try { [imageA, imageB] = await Promise.all([markedSnapshotDataUrl(snapshots.imageA, group), markedSnapshotDataUrl(snapshots.imageB, group)]); } catch (_) {}
+      }
+      const imageMarkup = imageA && imageB
+        ? '<div class="images"><figure><img src="' + imageA + '" alt="光学图 A 选区标记"><figcaption>光学图 A</figcaption></figure><figure><img src="' + imageB + '" alt="磁场分量图 B 选区标记"><figcaption>磁场分量图 B</figcaption></figure></div>'
+        : '<p class="snapshot-warning">此图像组缺少本地视图快照，仅导出数值结果。重新载入该组 A/B 图片并再次保存任一结果后可补全快照。</p>';
+      return '<section class="group"><h2>图像组 ' + (index + 1) + '</h2>' +
+        '<p class="meta">A：' + escapeHtml(group.aName) + '　 B：' + escapeHtml(group.bName) + '　 尺寸：' + group.width + ' × ' + group.height + ' px</p>' +
+        '<p class="legend"><span class="blue"></span>蓝色：行 ROI　<span class="red"></span>红色：列 ROI　圆形编号与表格序号对应</p>' +
+        imageMarkup +
+        '<div class="table-wrap"><table><thead><tr><th>序号</th><th>结果名称</th><th>行 ROI</th><th>列 ROI</th><th>|Δx|</th><th>|Δy|</th><th>合成位置差</th></tr></thead><tbody>' + reportTableRows(group) + '</tbody></table></div></section>';
+    }
+
+    function reportDocument(sections, total) {
+      const generatedAt = new Date().toLocaleString('zh-CN', { hour12: false });
+      return '<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>双图像 ROI 特征分析报告</title><style>' +
+        '*{box-sizing:border-box}body{margin:0;color:#13243a;background:#eef3f7;font-family:Arial,"Microsoft YaHei",sans-serif;line-height:1.55}.page{width:min(1200px,calc(100% - 32px));margin:auto;padding:32px 0 60px}.report-head{display:flex;justify-content:space-between;gap:20px;align-items:flex-start;margin-bottom:22px;padding:24px;color:#fff;background:#102a43;border-radius:16px}.report-head h1{margin:0 0 8px;font-size:28px}.report-head p{margin:0;color:#bed2e2;font-size:13px}.print{padding:9px 14px;color:#102a43;background:#fff;border:0;border-radius:9px;font-weight:700;cursor:pointer}.group{margin:0 0 22px;padding:20px;background:#fff;border:1px solid #dfe6ee;border-radius:16px;break-inside:avoid}.group h2{margin:0 0 5px;font-size:20px}.meta,.legend{margin:5px 0;color:#637287;font-size:12px}.legend span{display:inline-block;width:15px;height:7px;margin-right:4px;border-radius:2px}.legend .blue{background:#1686e8}.legend .red{background:#ef4b4f}.images{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:15px 0}.images figure{margin:0;padding:8px;background:#0f1b29;border-radius:10px}.images img{display:block;width:100%;height:auto;max-height:520px;object-fit:contain}.images figcaption{padding:7px 2px 0;color:#dce8f2;text-align:center;font-size:12px}.snapshot-warning{padding:13px;color:#8b5100;background:#fff7e7;border:1px solid #f3d8a2;border-radius:9px}.table-wrap{overflow-x:auto}table{width:100%;border-collapse:collapse;font-size:12px}th,td{padding:9px 10px;border-bottom:1px solid #dfe6ee;text-align:left;white-space:nowrap}th{color:#637287;background:#f4f7fa}.num{text-align:right;font-variant-numeric:tabular-nums}@media(max-width:720px){.report-head{flex-direction:column}.images{grid-template-columns:1fr}}@media print{body{background:#fff}.page{width:100%;padding:0}.print{display:none}.group{box-shadow:none;break-inside:avoid}.images img{max-height:420px}}</style></head><body><main class="page"><header class="report-head"><div><h1>双图像 ROI 特征分析报告</h1><p>共 ' + statistics.length + ' 组图像，' + total + ' 条选区结果　·　生成时间：' + generatedAt + '</p></div><button class="print" onclick="window.print()">打印或保存为 PDF</button></header>' + sections.join('') + '</main></body></html>';
+    }
+
+    function reportFilename() {
+      const date = new Date();
+      const pad = value => String(value).padStart(2, '0');
+      return 'ROI-analysis-report-' + date.getFullYear() + pad(date.getMonth() + 1) + pad(date.getDate()) + '-' + pad(date.getHours()) + pad(date.getMinutes()) + pad(date.getSeconds()) + '.html';
     }
 
     function extOf(file) {
@@ -1384,7 +1563,7 @@
     document.addEventListener('dragover', event => event.preventDefault());
     document.addEventListener('drop', event => event.preventDefault());
 
-    $('saveResultForm').addEventListener('submit', event => {
+    $('saveResultForm').addEventListener('submit', async event => {
       event.preventDefault();
       const nameInput = $('resultName');
       const name = nameInput.value.trim();
@@ -1433,35 +1612,78 @@
         distance: measurement.distance,
         savedAt: new Date().toISOString()
       });
+      let snapshotWarning = '';
+      try {
+        await storeCurrentGroupSnapshots(group.id);
+      } catch (error) {
+        snapshotWarning = '；图像快照未能保存，报告可能只包含数值结果';
+      }
       persistStatistics();
       renderStatistics();
       nameInput.value = '';
-      setSaveFeedback('已保存“' + name + '”到当前图像组（' + group.records.length + '/5）。', 'success');
+      setSaveFeedback('已保存“' + name + '”到当前图像组（' + group.records.length + '/5）' + snapshotWarning + '。', snapshotWarning ? 'error' : 'success');
     });
 
-    $('statisticsBody').addEventListener('click', event => {
+    $('exportReport').addEventListener('click', async () => {
+      const button = $('exportReport');
+      const originalText = button.textContent;
+      button.disabled = true;
+      button.textContent = '正在生成…';
+      setSaveFeedback('正在整理各图像组及选区标记，请稍候。');
+      try {
+        const sections = [];
+        for (let index = 0; index < statistics.length; index++) sections.push(await reportGroupSection(statistics[index], index));
+        const total = statistics.reduce((sum, group) => sum + group.records.length, 0);
+        const blob = new Blob([reportDocument(sections, total)], { type: 'text/html;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = reportFilename();
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        setSaveFeedback('报告已导出；打开 HTML 文件可查看、打印或另存为 PDF。', 'success');
+      } catch (error) {
+        setSaveFeedback('报告导出失败：' + (error?.message || '未知错误'), 'error');
+      } finally {
+        button.textContent = originalText;
+        button.disabled = statistics.length === 0;
+      }
+    });
+
+    $('statisticsBody').addEventListener('click', async event => {
       const button = event.target.closest('button[data-action]');
       if (!button) return;
       const group = statistics.find(item => item.id === button.dataset.groupId);
       if (!group) return;
+      let removedGroupId = '';
       if (button.dataset.action === 'delete-group') {
         if (!confirm('确定删除包含 ' + group.records.length + ' 条结果的整个图像组吗？')) return;
+        removedGroupId = group.id;
         statistics = statistics.filter(item => item.id !== group.id);
       } else if (button.dataset.action === 'delete-record') {
         const record = group.records.find(item => item.id === button.dataset.recordId);
         if (!record || !confirm('确定删除结果“' + record.name + '”吗？')) return;
         group.records = group.records.filter(item => item.id !== record.id);
-        if (!group.records.length) statistics = statistics.filter(item => item.id !== group.id);
+        if (!group.records.length) {
+          removedGroupId = group.id;
+          statistics = statistics.filter(item => item.id !== group.id);
+        }
       }
       persistStatistics();
+      if (removedGroupId) {
+        try { await deleteGroupSnapshots(removedGroupId); } catch (_) {}
+      }
       renderStatistics();
       setSaveFeedback('统计记录已更新。', 'success');
     });
 
-    $('clearStatistics').addEventListener('click', () => {
+    $('clearStatistics').addEventListener('click', async () => {
       if (!statistics.length || !confirm('确定清空所有图像组及已保存的选区结果吗？')) return;
       statistics = [];
       persistStatistics();
+      try { await clearGroupSnapshots(); } catch (_) {}
       renderStatistics();
       setSaveFeedback('统计结果已全部清空。', 'success');
     });
