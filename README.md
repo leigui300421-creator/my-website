@@ -30,6 +30,7 @@ my-website/
 ├── Two_wire_magnetic_simulator.html   # 矩形截面双导线交互仿真
 ├── NV_current_magnetic_imaging_evaluator.html # NV宽场芯片电流磁成像探测能力评估
 ├── image-roi-analyzer.html # 光学图与磁场分量图 ROI 特征分析器
+├── pixel-brightness-filter.html # 四图像素亮度筛选与颜色条配色（含 TIFF）
 ├── images/          # 网页使用的图片，可选
 ├── README.md        # 项目说明
 └── .gitignore       # Git 忽略规则
@@ -83,11 +84,15 @@ my-website/
 
 ## 像素亮度筛选与配色
 
-`pixel-brightness-filter.html` 是一个可直接打开的独立 HTML 页面，无外部依赖。支持拖入图片或文件夹、选择多张图片或整个文件夹，四个视图可分别选择图片，也可将同一张图片应用到四个视图。
+`pixel-brightness-filter.html` 是一个可直接打开的独立 HTML 页面，TIFF 解码器 GeoTIFF.js 2.1.3 及其 MIT 许可证已内嵌，不依赖在线资源。支持拖入图片或文件夹、选择多张图片或整个文件夹，四个视图可分别选择图片，也可将同一张图片应用到四个视图。
 
 每个视图可选择按亮度由暗到亮或由亮到暗筛选，输入 0–100%（最多两位小数），保留前指定比例的像素并按颜色条着色，其余像素设为纯黑。像素位置保持不变；截止亮度相同的像素按行顺序取舍，使保留数量等于四舍五入后的目标数量。提供 Viridis、彩虹、热力和灰度四种配色，以及颜色条反转、原图预览和原分辨率 PNG 导出。
 
-亮度使用浏览器解码后的 8 位 RGB 加权值，透明图像先与黑色合成；颜色条固定映射亮度 0–255。支持 PNG、JPEG、WebP、BMP、GIF 静态帧和 AVIF（取决于浏览器解码能力），单张最多 4000 万像素。图片只在浏览器内存中处理，刷新后清除。后台 Worker 执行筛选计算，避免占用页面交互线程。
+普通图片亮度使用浏览器解码后的 8 位 RGB 加权值，透明图像先与黑色合成；颜色条固定映射亮度 0–255。支持 TIFF（`.tif` / `.tiff`）、PNG、JPEG、WebP、BMP、GIF 静态帧和 AVIF（普通格式取决于浏览器解码能力），单张最多 4000 万像素。图片只在浏览器内存中处理，刷新后清除。后台 Worker 执行筛选计算，避免占用页面交互线程。
+
+TIFF 灰度图按原始数值排序（包括 8/16 位整数、带符号整数、32/64 位浮点），RGB TIFF 按原始通道加权；调色板、CMYK、YCbCr 和 CIELab TIFF 先转换为 RGB。TIFF 配色按本图有效亮度的最小值到最大值映射，颜色条与图下信息显示具体范围；原图预览进行显示映射，PNG 下载为 8 位配色结果。多页文件读取第一页；NaN、无穷值和 NoData 不计入百分比，始终显示为黑色。不支持的压缩、色彩格式或非标准显示方向会给出读取错误。
+
+验证命令：`node tests/pixel-brightness-filter.test.cjs` 和 `node tests/pixel-brightness-tiff.test.cjs`。TIFF 测试使用生成的真实 TIFF 字节流验证原始数值、压缩、字节序、多页、无效值及筛选结果。
 
 ## 本地查看
 
