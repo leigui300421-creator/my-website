@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="按亮度筛选像素，使用颜色条着色，在四个视图中比较图片。完全在浏览器本地处理。">
+  <title>像素亮度筛选与配色</title>
+  <style>
+    :root { color-scheme: light; --ink:#13243a; --muted:#637287; --line:#dfe6ee; --blue:#1686e8; --navy:#102a43; }
+    * { box-sizing:border-box; }
+    body { margin:0; color:var(--ink); background:radial-gradient(circle at 12% 0%,#1686e817,transparent 28rem),linear-gradient(180deg,#f8fafc,#eef3f7); font-family:Inter,"PingFang SC","Microsoft YaHei",system-ui,sans-serif; font-size:16px; line-height:1.6; }
+    button,input,select { font:inherit; }
+    button,.home { min-height:42px; padding:9px 15px; border:1px solid #cad6e2; border-radius:10px; background:white; color:var(--navy); cursor:pointer; text-decoration:none; font-weight:650; }
+    button:hover,.home:hover { border-color:var(--blue); background:#f0f7ff; }
+    button:disabled { opacity:.45; cursor:not-allowed; }
+    :focus-visible { outline:3px solid #1686e87a; outline-offset:3px; }
+    .primary { background:var(--navy); border-color:var(--navy); color:white; }
+    .primary:hover { background:#19486f; color:white; }
+    .shell { width:min(1560px,calc(100% - 40px)); margin:auto; padding:34px 0 50px; }
+    header { display:flex; justify-content:space-between; align-items:flex-start; gap:20px; margin-bottom:24px; }
+    .eyebrow { color:#0876bd; letter-spacing:.16em; font-size:13px; font-weight:800; margin:0 0 8px; }
+    h1 { font-size:clamp(26px,3vw,40px); line-height:1.25; margin:0; letter-spacing:-.03em; }
+    .subtitle { color:var(--muted); margin:12px 0 0; }
+    .top-actions { display:flex; gap:10px; align-items:center; flex-wrap:wrap; flex-shrink:0; }
+    .privacy { font-size:14px; color:#16865a; background:#f1fbf6; border:1px solid #cfe8dc; border-radius:30px; padding:9px 14px; }
+    .card { background:#fffffff5; border:1px solid var(--line); border-radius:18px; box-shadow:0 12px 35px #152b440a; }
+    .import { padding:22px; margin-bottom:22px; display:grid; grid-template-columns:1fr auto; align-items:center; gap:18px; border:1.5px dashed #a9bfd4; }
+    .import.over,.viewer.over { outline:3px solid var(--blue); background:#eaf5ff; }
+    h2 { margin:0; font-size:19px; }
+    .muted { color:var(--muted); }
+    .import p { margin:5px 0 0; font-size:14px; }
+    .actions { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+    .library { margin-bottom:22px; padding:18px 22px; }
+    .library-head { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+    #libraryList { display:flex; overflow:auto; gap:10px; padding-top:14px; }
+    #libraryList:empty { display:none; }
+    .asset { min-width:156px; max-width:180px; padding:8px; text-align:left; font-weight:400; }
+    .asset img { display:block; width:100%; height:72px; object-fit:contain; background:#101c2b; border-radius:5px; margin-bottom:5px; }
+    .asset span { display:block; font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .asset.selected { border-color:var(--blue); box-shadow:0 0 0 1px var(--blue); }
+    .library-hint { font-size:14px; color:var(--muted); margin:8px 0 0; }
+    #notice { margin:0 0 16px; color:#9c2f25; white-space:pre-line; font-size:14px; }
+    #notice:empty { display:none; }
+    .grid { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
+    .panel { min-width:0; overflow:hidden; }
+    .panel-head { padding:16px 18px; border-bottom:1px solid var(--line); display:flex; gap:10px; justify-content:space-between; align-items:center; }
+    .panel-head h2 { font-size:17px; }
+    .panel-buttons { display:flex; gap:7px; }
+    .panel-buttons button { font-size:14px; min-height:34px; padding:5px 10px; }
+    .panel-body { padding:16px 18px; }
+    .source { display:flex; gap:8px; margin-bottom:14px; }
+    .source select { flex:1; min-width:0; }
+    input[type=number],select { border:1px solid #cad6e2; border-radius:8px; background:white; padding:8px 10px; color:var(--ink); min-height:40px; }
+    select { appearance:none; padding-right:30px; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='m1 1 5 5 5-5' fill='none' stroke='%23637287' stroke-width='1.5'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 10px center; }
+    .controls { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+    .field { display:flex; flex-direction:column; gap:6px; min-width:0; font-size:14px; font-weight:650; }
+    .percent-line { display:flex; align-items:center; gap:8px; }
+    input[type=number] { width:100%; min-width:0; }
+    input[type=range] { width:100%; accent-color:var(--blue); margin:8px 0 0; cursor:pointer; }
+    .palette-row { display:flex; gap:10px; align-items:center; justify-content:space-between; margin-top:12px; font-size:14px; }
+    .palette-row label { display:flex; align-items:center; gap:6px; }
+    .colorbar { height:12px; border-radius:4px; margin-top:8px; border:1px solid #102a4320; }
+    .bar-labels { display:flex; justify-content:space-between; font-size:13px; color:var(--muted); margin:3px 0 12px; }
+    .viewer { min-height:240px; height:320px; background:#080e17; border-radius:10px; overflow:hidden; display:flex; justify-content:center; align-items:center; position:relative; }
+    canvas { display:block; max-width:100%; max-height:100%; width:auto; height:auto; object-fit:contain; }
+    canvas[hidden] { display:none; }
+    .empty { color:#afc0d3; text-align:center; font-size:15px; padding:20px; }
+    .empty strong { display:block; margin-bottom:8px; color:#e3edf8; font-size:18px; }
+    .viewer .busy { position:absolute; top:10px; left:10px; background:#102a43eb; color:white; border-radius:6px; padding:5px 10px; font-size:13px; pointer-events:none; }
+    .stats { min-height:46px; margin:10px 0 0; font-size:13px; color:var(--muted); overflow-wrap:anywhere; }
+    .stats.error { color:#ae332b; }
+    .original { font-size:14px; font-weight:500; display:flex; align-items:center; gap:6px; }
+    input[type=checkbox] { accent-color:var(--blue); width:16px; height:16px; }
+    details { margin-top:22px; padding:18px 22px; color:var(--muted); font-size:14px; }
+    summary { cursor:pointer; font-weight:700; color:var(--ink); }
+    details p { margin:10px 0 0; }
+    footer { color:var(--muted); font-size:13px; text-align:center; margin-top:24px; }
+    @media(min-width:1700px) { .viewer { height:380px; } }
+    @media(max-width:900px) { header { flex-direction:column; } .import { grid-template-columns:1fr; } }
+    @media(max-width:700px) { .grid { grid-template-columns:1fr; } .shell { width:calc(100% - 24px); padding-top:22px; } .viewer { height:300px; } .panel-body { padding:14px; } .panel-head { padding:14px; } .library-head { flex-wrap:wrap; } }
+  </style>
+</head>
+<body>
+<main class="shell">
+  <header>
+    <div><p class="eyebrow">IMAGE / PIXEL LAB</p><h1>像素亮度筛选与配色</h1><p class="subtitle">选出最亮或最暗的像素，按颜色条着色。四个视图，独立调整，同时比较。</p></div>
+    <div class="top-actions"><span class="privacy">图片仅在本地处理</span><a class="home" href="./index.html">返回目录</a></div>
+  </header>
+  <section class="card import" id="importZone" aria-label="图片导入区域">
+    <div><h2>拖入图片或文件夹，开始分析</h2><p class="muted">支持多张导入与子文件夹。PNG / JPEG / WebP / BMP / GIF（静态帧），以浏览器解码结果为准。</p></div>
+    <div class="actions"><button class="primary" id="chooseFiles">选择图片</button><button id="chooseFolder">选择文件夹</button><button id="loadDemo">试用示例</button></div>
+  </section>
+  <input type="file" id="fileInput" accept="image/png,image/jpeg,image/webp,image/bmp,image/gif,image/avif" multiple hidden>
+  <input type="file" id="folderInput" webkitdirectory directory multiple hidden>
+  <section class="card library" aria-labelledby="libraryTitle">
+    <div class="library-head"><h2 id="libraryTitle">图片库 <span class="muted" id="libraryCount">· 0 张</span></h2><div class="actions"><button id="fillFour" disabled>选中图片用于四图</button><button id="clearAll" disabled>清空图片</button></div></div>
+    <p class="library-hint" id="libraryHint">导入后自动填入空视图；点击图片库中的图片，再用“选中图片用于四图”比较不同参数。</p>
+    <div id="libraryList" aria-label="已导入图片"></div>
+  </section>
+  <p id="notice" role="status" aria-live="polite"></p>
+  <section class="grid" id="panels" aria-label="四图对比"></section>
+  <details class="card"><summary>筛选与颜色条如何工作</summary>
+    <p>亮度采用 Y = 0.2126R + 0.7152G + 0.0722B，取浏览器解码后的 8 位 RGB 值。由暗到亮保留最暗的部分，由亮到暗保留最亮的部分；只决定哪些像素显示，不改变位置。</p>
+    <p>保留数量 = 四舍五入（总像素数 × 输入百分比 / 100）。支持 0–100%，最多两位小数。截止处亮度相同的像素按从左到右、从上到下的顺序取舍，确保数量准确。0% 全黑，100% 显示全部像素的配色结果。</p>
+    <p>颜色条固定对应绝对亮度 0–255，四个视图可以直接比较。筛选后的像素按自身亮度映射为颜色条上的颜色；未选中的像素为纯黑。反转颜色条只改变配色，不改变筛选结果。</p>
+    <p>透明像素先与黑色背景合成，所有像素均参与排序。图片按原分辨率计算和导出，不做自动缩小；单张支持最多 4000 万像素。预览自动适应视图大小。原图预览仅用于对照，下载内容始终为处理结果。</p>
+  </details>
+  <footer>无需安装，无需上传服务器 · 关闭或刷新页面后清除本次图片</footer>
+</main>
+<script id="workerSource" type="text/plain">
+'use strict';
+const MAX_KEY = 2550000;
+let pixels, cumulative, total, width, height;
+function keyAt(i) { return pixels[i]*2126 + pixels[i+1]*7152 + pixels[i+2]*722; }
+function keyForRank(rank) {
+  let lo=0, hi=MAX_KEY;
+  while(lo<hi) { const mid=(lo+hi)>>>1; if(cumulative[mid]>=rank) hi=mid; else lo=mid+1; }
+  return lo;
+}
+function buildTable(stops, reverse) {
+  const table=new Uint8ClampedArray(256*3);
+  for(let y=0;y<256;y++) {
+    const x=(reverse?1-y/255:y/255)*(stops.length-1), a=Math.min(stops.length-2,Math.floor(x)), t=x-a;
+    for(let c=0;c<3;c++) table[y*3+c]=Math.round(stops[a][c]*(1-t)+stops[a+1][c]*t);
+  }
+  return table;
+}
+self.onmessage=({data:m})=>{
+  try {
+    if(m.type==='load') {
+      width=m.width; height=m.height; total=width*height; pixels=new Uint8ClampedArray(m.buffer);
+      cumulative=new Uint32Array(MAX_KEY+1);
+      for(let i=0;i<pixels.length;i+=4) cumulative[keyAt(i)]++;
+      for(let k=1;k<=MAX_KEY;k++) cumulative[k]+=cumulative[k-1];
+      self.postMessage({type:'ready'}); return;
+    }
+    if(m.type!=='render'||!pixels) return;
+    const keep=Math.max(0,Math.min(total,Math.round(total*m.percent/100))), asc=m.direction==='asc';
+    const cutoff=keep===0?0:keyForRank(asc?keep:total-keep+1);
+    const strict=asc?(cutoff?cumulative[cutoff-1]:0):total-cumulative[cutoff];
+    let ties=keep-strict;
+    const out=new Uint8ClampedArray(pixels.length), table=buildTable(m.stops,m.reverse);
+    for(let i=0;i<out.length;i+=4) {
+      const key=keyAt(i);
+      const selected=keep>0&&((asc?key<cutoff:key>cutoff)||(key===cutoff&&ties-->0));
+      if(selected) { const c=Math.round(key/10000)*3; out[i]=table[c]; out[i+1]=table[c+1]; out[i+2]=table[c+2]; }
+      out[i+3]=255;
+    }
+    self.postMessage({type:'result',id:m.id,buffer:out.buffer,keep,cutoff:keep?cutoff/10000:null,width,height},[out.buffer]);
+  } catch(error) { self.postMessage({type:'error',message:error.message}); }
+};
+</script>
+<script>
+'use strict';
+const $=s=>document.querySelector(s);
+const palettes={
+  viridis:{name:'Viridis · 紫蓝绿黄',stops:[[68,1,84],[59,82,139],[33,145,140],[94,201,98],[253,231,37]]},
+  turbo:{name:'彩虹 · 蓝青绿黄红',stops:[[48,18,59],[65,69,171],[31,163,226],[36,222,167],[164,252,60],[239,205,58],[245,99,23],[180,4,38],[122,4,3]]},
+  inferno:{name:'热力 · 紫红橙黄',stops:[[0,0,4],[66,10,104],[147,38,103],[221,81,58],[252,165,10],[252,255,164]]},
+  gray:{name:'灰度 · 黑白',stops:[[0,0,0],[255,255,255]]}
+};
+const assets=[], panels=[]; let selectedAsset=null, assetId=0, importEpoch=0;
+const workerURL=URL.createObjectURL(new Blob([$('#workerSource').textContent],{type:'text/javascript'}));
+const number=new Intl.NumberFormat('zh-CN');
+function notice(message='') { $('#notice').textContent=message; }
+function resetOutput(p) {
+  p.ready=false; p.hasResult=false; p.processing=false; p.id++; clearTimeout(p.timer);
+  if(p.worker) {p.worker.terminate();p.worker=null;}
+  p.canvas.width=p.canvas.height=1; p.original.width=p.original.height=1;
+  p.canvas.hidden=true; p.original.hidden=true; p.empty.hidden=false; p.busy.hidden=true;
+  p.download.disabled=true; p.copy.disabled=true; p.stats.classList.remove('error');
+}
+function makePanel(index) {
+  const root=document.createElement('article'); root.className='card panel';
+  root.innerHTML=`<div class="panel-head"><h2>视图 ${index+1}</h2><div class="panel-buttons"><button class="copy" disabled title="复制当前图片至四个视图">用于四图</button><button class="download" disabled>下载 PNG</button></div></div>
+    <div class="panel-body"><div class="source"><select class="image-select" aria-label="视图 ${index+1} 的图片"><option value="">请选择图片</option></select><button class="pick" aria-label="为视图 ${index+1} 导入图片">导入</button></div>
+    <div class="controls"><label class="field">亮度排序<select class="direction"><option value="desc">由亮到暗（保留最亮）</option><option value="asc">由暗到亮（保留最暗）</option></select></label>
+    <label class="field">显示前百分之多少<div class="percent-line"><input class="percent" type="number" min="0" max="100" step="0.01" value="${[10,25,50,100][index]}" required><span>%</span></div></label>
+    <label class="field">颜色条配色<select class="palette">${Object.entries(palettes).map(([key,v])=>`<option value="${key}">${v.name}</option>`).join('')}</select></label>
+    <label class="field">拖动调整比例<input class="slider" aria-label="显示比例滑块" type="range" min="0" max="100" step="0.01" value="${[10,25,50,100][index]}"></label></div>
+    <div class="palette-row"><label><input class="reverse" type="checkbox">反转颜色条</label><label class="original"><input class="show-original" type="checkbox">预览原图</label></div>
+    <div class="colorbar" role="img" aria-label="亮度颜色条"></div><div class="bar-labels"><span>暗 · 0</span><span>亮度</span><span>255 · 亮</span></div>
+    <div class="viewer"><canvas class="result" hidden aria-label="筛选处理结果"></canvas><canvas class="original-canvas" hidden aria-label="原图预览"></canvas><div class="empty"><strong>把图片拖到这里</strong>或从上方图片库选择图片</div><span class="busy" hidden>正在处理…</span></div>
+    <p class="stats" role="status" aria-live="polite">等待导入图片。当前设置保留${[10,25,50,100][index]}% 的像素。</p></div>`;
+  $('#panels').append(root);
+  const q=s=>root.querySelector(s), p={root,index,select:q('.image-select'),percent:q('.percent'),slider:q('.slider'),direction:q('.direction'),palette:q('.palette'),reverse:q('.reverse'),showOriginal:q('.show-original'),canvas:q('.result'),original:q('.original-canvas'),empty:q('.empty'),busy:q('.busy'),stats:q('.stats'),download:q('.download'),copy:q('.copy'),asset:null,worker:null,id:0,generation:0,ready:false,hasResult:false,processing:false};
+  p.direction.value=index===2?'asc':'desc';
+  p.select.onchange=()=>loadPanel(p,assets.find(a=>a.id===p.select.value)||null);
+  q('.pick').onclick=()=>{const input=document.createElement('input');input.type='file';input.accept='image/*';input.onchange=()=>importFiles(input.files,p);input.click();};
+  p.percent.oninput=()=>{if(!p.percent.checkValidity()) {clearTimeout(p.timer);p.id++;p.download.disabled=true;p.busy.hidden=true;p.processing=false;p.stats.textContent='请输入 0–100 之间的百分比，最多两位小数。';return;}p.slider.value=p.percent.value;requestRender(p);};
+  p.slider.oninput=()=>{p.percent.value=p.slider.value;requestRender(p);};
+  for(const control of [p.direction,p.palette,p.reverse]) control.onchange=()=>{updateBar(p);requestRender(p);};
+  p.showOriginal.onchange=()=>showCanvas(p);
+  p.download.onclick=()=>download(p);
+  p.copy.onclick=()=>fillFour(p.asset);
+  attachDrop(q('.viewer'),files=>importFiles(files,p)); updateBar(p); return p;
+}
+function updateBar(p) {
+  const stops=[...palettes[p.palette.value].stops];if(p.reverse.checked)stops.reverse();
+  p.root.querySelector('.colorbar').style.background=`linear-gradient(to right,${stops.map(c=>`rgb(${c.join(',')})`).join(',')})`;
+}
+function showCanvas(p) { p.original.hidden=!p.asset||!p.ready||!p.showOriginal.checked;p.canvas.hidden=!p.hasResult||p.showOriginal.checked; }
+function requestRender(p) {
+  clearTimeout(p.timer);p.id++;p.download.disabled=true;
+  if(!p.percent.checkValidity())return;
+  if(!p.ready)return;
+  p.busy.hidden=false;p.processing=true;
+  p.timer=setTimeout(()=>p.worker?.postMessage({type:'render',id:p.id,percent:Number(p.percent.value),direction:p.direction.value,stops:palettes[p.palette.value].stops,reverse:p.reverse.checked}),90);
+}
+async function decode(file) {
+  const url=URL.createObjectURL(file), img=new Image();
+  try {img.src=url;await img.decode();return img;} finally {URL.revokeObjectURL(url);}
+}
+async function loadPanel(p,asset) {
+  const generation=++p.generation; resetOutput(p);p.asset=asset;p.select.value=asset?.id||'';
+  p.stats.textContent=asset?'正在读取图片…':'等待导入图片。';if(!asset)return;
+  p.busy.hidden=false;
+  try {
+    const img=await decode(asset.file);if(generation!==p.generation)return;
+    const w=img.naturalWidth,h=img.naturalHeight;
+    if(!w||!h||w*h>40000000)throw new Error('单张图片最多支持 4000 万像素，请先缩小图片。');
+    p.original.width=w;p.original.height=h;
+    const ctx=p.original.getContext('2d',{willReadFrequently:true});ctx.fillStyle='#000';ctx.fillRect(0,0,w,h);ctx.drawImage(img,0,0);
+    const data=ctx.getImageData(0,0,w,h);p.canvas.width=w;p.canvas.height=h;
+    const worker=new Worker(workerURL);p.worker=worker;
+    const fail=message=>{if(generation!==p.generation)return;resetOutput(p);p.stats.classList.add('error');p.stats.textContent=message;};
+    worker.onerror=event=>{event.preventDefault();fail('处理失败：'+(event.message||'浏览器无法启动后台计算。'));};
+    worker.onmessage=({data:m})=>{
+      if(generation!==p.generation)return;
+      if(m.type==='error'){fail('处理失败：'+m.message);return;}
+      if(m.type==='ready'){p.ready=true;p.empty.hidden=true;p.copy.disabled=false;showCanvas(p);requestRender(p);return;}
+      if(m.type!=='result'||m.id!==p.id)return;
+      try {p.canvas.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(m.buffer),w,h),0,0);}catch(error){fail('无法显示图片：'+error.message);return;}
+      p.hasResult=true;p.processing=false;p.busy.hidden=true;p.download.disabled=false;showCanvas(p);
+      const threshold=m.cutoff===null?'无':m.cutoff.toFixed(2);
+      p.stats.textContent=`${asset.name} · ${w} × ${h} · 保留 ${number.format(m.keep)} / ${number.format(w*h)} 像素（${p.percent.value}%） · 截止亮度 ${threshold}`;
+    };
+    worker.postMessage({type:'load',width:w,height:h,buffer:data.data.buffer},[data.data.buffer]);
+  } catch(error) {if(generation!==p.generation)return;resetOutput(p);p.stats.classList.add('error');p.stats.textContent='无法读取图片：'+error.message;}
+}
+function refreshLibrary() {
+  $('#libraryCount').textContent=`· ${assets.length} 张`;$('#fillFour').disabled=!selectedAsset;$('#clearAll').disabled=!assets.length;
+  const list=$('#libraryList');list.replaceChildren();
+  for(const asset of assets) {
+    const button=document.createElement('button');button.className='asset'+(selectedAsset===asset?' selected':'');button.setAttribute('aria-pressed',String(selectedAsset===asset));button.title=asset.name;
+    const image=document.createElement('img');image.src=asset.thumbnail;image.alt='';const label=document.createElement('span');label.textContent=asset.name;
+    button.append(image,label);button.onclick=()=>{selectedAsset=asset;refreshLibrary();};list.append(button);
+  }
+  for(const p of panels) {const value=p.select.value;p.select.replaceChildren(new Option('请选择图片',''));for(const asset of assets)p.select.add(new Option(asset.name,asset.id));p.select.value=value;}
+}
+function supported(file) {return /\.(png|jpe?g|webp|bmp|gif|avif)$/i.test(file.name);}
+async function importFiles(files,target=null) {
+  const epoch=importEpoch, candidates=Array.from(files).filter(supported),added=[],errors=[];
+  if(!candidates.length){notice('未找到支持的图片，请选择 PNG、JPEG、WebP、BMP、GIF 或 AVIF 文件。');return;}
+  notice(`正在导入 ${candidates.length} 张图片…`);
+  for(const file of candidates) {
+    if(epoch!==importEpoch)return;
+    try {
+      const image=await decode(file);if(epoch!==importEpoch)return;
+      if(!image.naturalWidth||image.naturalWidth*image.naturalHeight>40000000)throw new Error('超过 4000 万像素');
+      const thumb=document.createElement('canvas'),scale=Math.min(1,160/image.naturalWidth,100/image.naturalHeight);
+      thumb.width=Math.max(1,Math.round(image.naturalWidth*scale));thumb.height=Math.max(1,Math.round(image.naturalHeight*scale));
+      thumb.getContext('2d').drawImage(image,0,0,thumb.width,thumb.height);
+      const asset={id:String(++assetId),name:file.webkitRelativePath||file.name,file,thumbnail:thumb.toDataURL('image/png')};assets.push(asset);added.push(asset);
+    }catch(error){errors.push(`${file.name}：${error.message}`);}
+  }
+  if(epoch!==importEpoch)return;
+  if(added.length)selectedAsset=added[0];refreshLibrary();
+  let cursor=0;if(target&&added.length)loadPanel(target,added[cursor++]);
+  for(const p of panels)if(!p.asset&&cursor<added.length)loadPanel(p,added[cursor++]);
+  notice(errors.length?`成功导入 ${added.length} 张；以下图片未导入：\n${errors.join('\n')}`:'');
+}
+function fillFour(asset) {if(asset)for(const p of panels)loadPanel(p,asset);}
+async function readEntry(entry) {
+  if(entry.isFile)return [await new Promise((resolve,reject)=>entry.file(resolve,reject))];
+  if(!entry.isDirectory)return [];
+  const reader=entry.createReader(),files=[];
+  while(true){const batch=await new Promise((resolve,reject)=>reader.readEntries(resolve,reject));if(!batch.length)break;for(const child of batch)files.push(...await readEntry(child));}
+  return files;
+}
+function attachDrop(zone,onFiles) {
+  let depth=0;
+  zone.addEventListener('dragenter',event=>{event.preventDefault();depth++;zone.classList.add('over');});
+  zone.addEventListener('dragover',event=>{event.preventDefault();event.dataTransfer.dropEffect='copy';});
+  zone.addEventListener('dragleave',()=>{if(--depth<=0){depth=0;zone.classList.remove('over');}});
+  zone.addEventListener('drop',async event=>{
+    event.preventDefault();depth=0;zone.classList.remove('over');
+    // Capture entries while the browser still grants access to the drag data store.
+    const items=Array.from(event.dataTransfer.items||[]),fallback=Array.from(event.dataTransfer.files),epoch=importEpoch;
+    const entries=items.map(item=>item.webkitGetAsEntry?.()).filter(Boolean);
+    try {const files=entries.length?(await Promise.all(entries.map(readEntry))).flat():fallback;if(epoch===importEpoch)await onFiles(files);}catch(error){notice('无法读取拖入的文件夹，请使用“选择文件夹”：'+error.message);}
+  });
+}
+function download(p) {
+  if(!p.hasResult||p.processing||!p.percent.checkValidity())return;
+  const filename=`${p.asset.name.split('/').pop().replace(/\.[^.]+$/,'')}_${p.direction.value}_${p.percent.value}pct_${p.palette.value}${p.reverse.checked?'_reversed':''}.png`;
+  p.canvas.toBlob(blob=>{if(!blob){notice('导出失败，请缩小图片后重试。');return;}const url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download=filename;link.click();setTimeout(()=>URL.revokeObjectURL(url),10000);},'image/png');
+}
+for(let i=0;i<4;i++)panels.push(makePanel(i));
+$('#chooseFiles').onclick=()=>$('#fileInput').click();$('#chooseFolder').onclick=()=>$('#folderInput').click();
+for(const id of ['fileInput','folderInput'])$('#'+id).onchange=event=>{importFiles(event.target.files);event.target.value='';};
+$('#fillFour').onclick=()=>fillFour(selectedAsset);
+$('#clearAll').onclick=()=>{importEpoch++;assets.length=0;selectedAsset=null;for(const p of panels)loadPanel(p,null);refreshLibrary();notice();};
+attachDrop($('#importZone'),files=>importFiles(files));
+// Prevent accidental browser navigation when files miss a drop area.
+window.addEventListener('dragover',event=>event.preventDefault());window.addEventListener('drop',event=>event.preventDefault());
+$('#loadDemo').onclick=async()=>{
+  const epoch=importEpoch,c=document.createElement('canvas');c.width=720;c.height=480;const ctx=c.getContext('2d'),image=ctx.createImageData(c.width,c.height);
+  for(let y=0;y<c.height;y++)for(let x=0;x<c.width;x++) {const i=(y*c.width+x)*4,glow=Math.exp(-((x-390)**2/23000+(y-220)**2/9000)),ripple=(Math.sin(x/25+y/40)+1)*12,v=Math.min(255,Math.round(12+glow*220+x/c.width*35+ripple));image.data[i]=v;image.data[i+1]=v;image.data[i+2]=v;image.data[i+3]=255;}
+  ctx.putImageData(image,0,0);c.toBlob(async blob=>{if(!blob||epoch!==importEpoch)return;const before=assets.length;await importFiles([new File([blob],'亮度示例.png',{type:'image/png'})]);if(epoch===importEpoch&&assets.length>before)fillFour(assets[assets.length-1]);});
+};
+window.addEventListener('pagehide',()=>{for(const p of panels)p.worker?.terminate();});
+window.addEventListener('pageshow',event=>{if(event.persisted)for(const p of panels)if(p.asset)loadPanel(p,p.asset);});
+</script>
+</body>
+</html>
