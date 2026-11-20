@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="按亮度筛选像素，使用颜色条着色，在四个视图中比较图片。完全在浏览器本地处理。">
-  <title>像素亮度筛选与配色</title>
+  <title>图像亮度筛选与均匀度分析</title>
   <style>
     :root { color-scheme: light; --ink:#13243a; --muted:#637287; --line:#dfe6ee; --blue:#1686e8; --navy:#102a43; }
     * { box-sizing:border-box; }
@@ -79,14 +79,36 @@
     footer { color:var(--muted); font-size:13px; text-align:center; margin-top:24px; }
     @media(max-width:900px) { header { flex-direction:column; } .import { grid-template-columns:1fr; } }
     @media(max-width:700px) { .grid { grid-template-columns:1fr; } .shell { width:calc(100% - 24px); padding-top:22px; } .panel-body { padding:14px; } .panel-head { padding:14px; } .library-head { flex-wrap:wrap; } }
+
+    .feature-title { margin:24px 0 14px; font-size:22px; }
+    .uniformity { margin-top:36px; padding-top:28px; border-top:2px solid #cad6e2; }
+    .uniformity .uniform-intro { margin:8px 0 18px; color:var(--muted); }
+    .uniformity .uniform-import { padding:18px; margin-bottom:18px; border:1.5px dashed #a9bfd4; }
+    .uniformity .uniform-import.over { outline:3px solid var(--blue); }
+    .uniformity .uniform-layout { display:grid; grid-template-columns:minmax(0,1.5fr) minmax(300px,1fr); gap:20px; align-items:start; }
+    .uniformity .uniform-preview,.uniformity .uniform-controls { padding:18px; min-width:0; }
+    .uniformity .uniform-view { touch-action:none; user-select:none; cursor:crosshair; border-radius:0; }
+    .uniformity .roi-box { position:absolute; border:2px solid #3cddff; box-shadow:0 0 0 9999px #0005; pointer-events:none; z-index:1; }
+    .uniformity .roi-box[hidden] { display:none; }
+    .uniformity .roi-fields { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin:14px 0; }
+    .uniformity .metric-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:18px; }
+    .uniformity .metric { padding:13px; background:#f3f7fc; border:1px solid var(--line); border-radius:10px; overflow-wrap:anywhere; }
+    .uniformity .metric.main { grid-column:1 / -1; background:#eaf5ff; border-color:#b9dcfa; }
+    .uniformity .metric span { display:block; color:var(--muted); font-size:14px; }
+    .uniformity .metric strong { font-size:22px; font-variant-numeric:tabular-nums; }
+    .uniformity .metric.main strong { font-size:34px; color:#0867a8; }
+    .uniformity .formula { color:var(--muted); font-size:14px; margin:18px 0 0; }
+    @media(max-width:800px) { .uniformity .uniform-layout { grid-template-columns:1fr; } }
   </style>
 </head>
 <body>
 <main class="shell">
   <header>
-    <div><p class="eyebrow">IMAGE / PIXEL LAB</p><h1>像素亮度筛选与配色</h1><p class="subtitle">选出最亮或最暗的像素，按颜色条着色。四个视图，独立调整，同时比较。</p></div>
+    <div><p class="eyebrow">IMAGE / PIXEL LAB</p><h1>图像亮度筛选与均匀度分析</h1><p class="subtitle">选出最亮或最暗的像素，按颜色条着色。四个视图，独立调整，同时比较。</p></div>
     <div class="top-actions"><span class="privacy">图片仅在本地处理</span><a class="home" href="./index.html">返回目录</a></div>
   </header>
+  <h2 class="feature-title">??? ? ?????????</h2>
+  <h2 class="feature-title">功能一 · 像素亮度筛选与配色</h2>
   <section class="card import" id="importZone" aria-label="图片导入区域">
     <div><h2>拖入图片或文件夹，开始分析</h2><p class="muted">支持多张导入与子文件夹。TIFF / PNG / JPEG / WebP / BMP / GIF（静态帧）。TIFF 保留原始数值排序。</p></div>
     <div class="actions"><button class="primary" id="chooseFiles">选择图片</button><button id="chooseFolder">选择文件夹</button><button id="loadDemo">试用示例</button></div>
@@ -107,6 +129,51 @@
     <p>TIFF 支持 .tif / .tiff（含 8/16 位整数和 32/64 位浮点灰度），多页文件读取第一页。NaN、无穷值与文件声明的 NoData 不参与筛选，始终为黑色，百分比以有效像素数计算。WhiteIsZero 灰度按视觉亮度反向。调色板、CMYK、YCbCr 与 CIELab TIFF 先解码为 RGB；不支持的压缩或色彩格式会显示错误。TIFF 预览按数据范围映射，PNG 导出为 8 位配色结果。</p>
     <p>透明像素先与黑色背景合成，所有像素均参与排序。图片按原分辨率计算和导出，不做自动缩小；单张支持最多 4000 万像素。每个显示区域的高度随图片宽高比自动调整，图片等比填满窗口宽度，完整显示；浏览器窗口变化时自动缩放。原图预览仅用于对照，下载内容始终为处理结果。</p>
   </details>
+
+  <section class="uniformity" id="uniformity" aria-labelledby="uniformTitle">
+    <h2 id="uniformTitle" class="feature-title">功能二 · 图像均匀度分析</h2>
+    <p class="uniform-intro">分析原始图像的整个面或指定矩形区域。均匀度 = 1 − 相对标准差；选区与上方四图筛选独立。</p>
+    <div class="card uniform-import" id="uniformDrop">
+      <div class="actions"><button id="uniformChoose" class="primary">导入分析图片</button><button id="uniformReuse">使用上方图片库选中的图片</button></div>
+      <p class="library-hint">也可拖入一张图片。支持 TIFF 和普通图片；导入新图默认分析整张图片，不应用上方的筛选或配色。</p>
+      <input type="file" id="uniformFile" accept=".tif,.tiff,image/tiff,image/png,image/jpeg,image/webp,image/bmp,image/gif,image/avif" hidden>
+    </div>
+    <div class="uniform-layout">
+      <div class="card uniform-preview">
+        <div class="viewer uniform-view" id="uniformView" aria-label="在原图上拖动框选均匀度分析区域">
+          <canvas id="uniformCanvas" hidden aria-label="均匀度原图预览"></canvas><div class="empty" id="uniformEmpty"><strong>导入图片开始分析</strong>可在此拖动框选，也可输入右侧像素坐标</div><div class="roi-box" id="uniformBox" hidden></div>
+        </div>
+        <p class="stats" id="uniformMeta">尚未导入图片。</p>
+      </div>
+      <div class="card uniform-controls">
+        <h2>计算区域</h2>
+        <form id="uniformForm">
+          <fieldset id="uniformFields" disabled style="border:0;padding:0;margin:0;min-width:0">
+            <div class="roi-fields">
+              <label class="field" for="uniformX0">左上角 X<input id="uniformX0" type="number" min="0" step="1" value="0" required></label>
+              <label class="field" for="uniformY0">左上角 Y<input id="uniformY0" type="number" min="0" step="1" value="0" required></label>
+              <label class="field" for="uniformX1">右下角 X<input id="uniformX1" type="number" min="0" step="1" value="0" required></label>
+              <label class="field" for="uniformY1">右下角 Y<input id="uniformY1" type="number" min="0" step="1" value="0" required></label>
+            </div>
+            <div class="actions"><button class="primary" type="submit">应用坐标并计算</button><button id="uniformFull" type="button">恢复整图</button></div>
+          </fieldset>
+        </form>
+        <p class="library-hint">坐标从左上角 (0, 0) 起，包含两端像素。拖动框选后自动计算。</p>
+        <p class="stats" id="uniformStatus" role="status" aria-live="polite">等待导入图片。</p>
+        <div class="metric-grid">
+          <div class="metric main"><span>均匀度 U = 1 − RSD（百分比显示）</span><strong id="uniformU">—</strong></div>
+          <div class="metric"><span>相对标准差 RSD</span><strong id="uniformRsd">—</strong></div>
+          <div class="metric"><span>整个选区的平均值 μ</span><strong id="uniformMean">—</strong></div>
+          <div class="metric"><span>整个选区的标准差 σ</span><strong id="uniformStd">—</strong></div>
+          <div class="metric"><span>有效 / 选区像素数</span><strong id="uniformCount">—</strong></div>
+          <div class="metric"><span>最小值</span><strong id="uniformMin">—</strong></div>
+          <div class="metric"><span>最大值</span><strong id="uniformMax">—</strong></div>
+        </div>
+        <p class="formula">μ = Σv / N；σ = √[Σ(v − μ)² / N]；RSD = σ / μ；U = 1 − RSD。采用总体标准差（分母 N），计算当前选区全部有效像素，不抽样、不逐行平均。RSD 和 U 均乘 100% 显示，例如 RSD 为 5% 时，均匀度为 95%。</p>
+        <p class="formula">普通图片使用原图加权亮度；TIFF 使用解码后的原始亮度值。NaN、无穷值和 NoData 不参与计算。均值为零或相对数据幅度接近零时，RSD 与均匀度显示为无法计算；均匀度不强制限制在 0–100%。负均值或正负混合数据会提示解释限制。</p>
+      </div>
+    </div>
+  </section>
   <footer>无需安装，无需上传服务器 · 关闭或刷新页面后清除本次图片</footer>
 </main>
 <script id="tiffDecoder">
@@ -193,6 +260,32 @@ async function decodeTiffRaster(file) {
   const note=`TIFF · ${bits.join('/')} 位${formats[0]===3?'浮点':formats[0]===2?'有符号整数':'整数'} · 亮度范围 ${formatValue(min)}–${formatValue(max)}${pages>1?` · 仅第 1/${pages} 页`:''}${valid<total?` · 排除 ${total-valid} 个无效像素`:''}${!directGray&&!directRGB?' · 色彩转换为 RGB':''}`;
   return {width,height,values,rgba,range:[min,max],valid,note};
 }
+</script>
+
+<script id="uniformWorkerSource" type="text/plain">
+'use strict';
+let values,width,height;
+function analyzeRegion(data,w,h,roi) {
+  const {x0,y0,x1,y1}=roi;
+  if(![x0,y0,x1,y1].every(Number.isInteger)||x0<0||y0<0||x1>=w||y1>=h||x0>x1||y0>y1)throw new Error('请输入图像范围内的整数坐标，且左上角不能超过右下角。');
+  let n=0,mean=0,m2=0,min=Infinity,max=-Infinity;
+  for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++) {
+    const v=data[y*w+x];if(!Number.isFinite(v))continue;
+    n++;const delta=v-mean;mean+=delta/n;m2+=delta*(v-mean);min=Math.min(min,v);max=Math.max(max,v);
+  }
+  const area=(x1-x0+1)*(y1-y0+1);
+  if(!n)return {n,area,mean:null,std:null,rsd:null,uniformity:null,min:null,max:null,reason:'选区没有有效像素。'};
+  const std=Math.sqrt(Math.max(0,m2/n)),nearZero=Math.abs(mean)<=64*Number.EPSILON*Math.max(Math.abs(min),Math.abs(max));
+  const ratio=nearZero?null:std/mean;
+  const reliable=ratio!==null&&Number.isFinite(ratio)&&Number.isFinite(std)&&Number.isFinite(mean);
+  return {n,area,mean,std,rsd:reliable?ratio:null,uniformity:reliable?1-ratio:null,min,max,reason:!reliable?'平均值为零、接近零或数值溢出，无法可靠计算 RSD 和均匀度。':min<0?'选区包含负值；已按 σ/μ 计算，负均值或正负混合数据不宜直接按常规亮度均匀度解释。':''};
+}
+self.onmessage=({data:m})=>{
+  try {
+    if(m.type==='load'){width=m.width;height=m.height;values=new Float64Array(m.buffer);if(values.length!==width*height)throw new Error('像素数据尺寸不匹配。');self.postMessage({type:'ready'});}
+    else if(m.type==='analyze'&&values)self.postMessage({type:'result',id:m.id,roi:m.roi,...analyzeRegion(values,width,height,m.roi)});
+  }catch(error){self.postMessage({type:'error',id:m.id,message:error.message});}
+};
 </script>
 <script id="workerSource" type="text/plain">
 'use strict';
@@ -435,6 +528,105 @@ $('#loadDemo').onclick=async()=>{
 };
 window.addEventListener('pagehide',()=>{for(const p of panels)p.worker?.terminate();});
 window.addEventListener('pageshow',event=>{if(event.persisted)for(const p of panels)if(p.asset)loadPanel(p,p.asset);});
+</script>
+
+<script id="uniformityUI">
+'use strict';
+const uniform={width:0,height:0,roi:null,worker:null,ready:false,id:0,generation:0,drag:null};
+const uq=id=>document.getElementById(id),uview=uq('uniformView'),ucanvas=uq('uniformCanvas');
+const uinputs=['uniformX0','uniformY0','uniformX1','uniformY1'].map(uq);
+const uniformURL=URL.createObjectURL(new Blob([uq('uniformWorkerSource').textContent],{type:'text/javascript'}));
+function clearUniformMetrics(message) {
+  for(const id of ['uniformU','uniformRsd','uniformMean','uniformStd','uniformCount','uniformMin','uniformMax'])uq(id).textContent='—';
+  uq('uniformStatus').textContent=message;
+}
+function drawUniformRoi() {
+  if(!uniform.roi)return;
+  const {x0,y0,x1,y1}=uniform.roi,box=uq('uniformBox');box.hidden=false;
+  Object.assign(box.style,{left:`${100*x0/uniform.width}%`,top:`${100*y0/uniform.height}%`,width:`${100*(x1-x0+1)/uniform.width}%`,height:`${100*(y1-y0+1)/uniform.height}%`});
+  [x0,y0,x1,y1].forEach((value,i)=>{uinputs[i].value=value;});
+}
+function requestUniformAnalysis() {
+  if(!uniform.ready||!uniform.roi)return;
+  clearUniformMetrics('正在计算选区内全部有效像素…');
+  uniform.worker.postMessage({type:'analyze',id:++uniform.id,roi:{...uniform.roi}});
+}
+function fullUniformRegion() {
+  if(!uniform.width)return;
+  uniform.roi={x0:0,y0:0,x1:uniform.width-1,y1:uniform.height-1};drawUniformRoi();requestUniformAnalysis();
+}
+async function loadUniformFile(file) {
+  if(!file)return;
+  if(!supported(file)){clearUniformMetrics('请选择 TIFF、PNG、JPEG、WebP、BMP、GIF 或 AVIF 图片。');return;}
+  const generation=++uniform.generation;uniform.id++;uniform.ready=false;uniform.drag=null;
+  uniform.worker?.terminate();uniform.worker=null;uniform.roi=null;uniform.width=uniform.height=0;
+  uq('uniformFields').disabled=true;uq('uniformBox').hidden=true;ucanvas.hidden=true;ucanvas.width=ucanvas.height=1;
+  uq('uniformEmpty').hidden=false;uview.classList.remove('has-image');uview.style.removeProperty('aspect-ratio');
+  clearUniformMetrics('正在读取原始图片…');uq('uniformMeta').textContent=file.name;
+  try {
+    const image=await decode(file);if(generation!==uniform.generation)return;
+    const w=image.naturalWidth,h=image.naturalHeight;
+    if(!w||!h||w*h>40000000)throw new Error('单张图片最多支持 4000 万像素。');
+    ucanvas.width=w;ucanvas.height=h;const ctx=ucanvas.getContext('2d',{willReadFrequently:true});
+    ctx.fillStyle='#000';ctx.fillRect(0,0,w,h);ctx.drawImage(image.source||image,0,0);
+    let data;
+    if(image.values)data=image.values.slice();
+    else {const rgba=ctx.getImageData(0,0,w,h).data;data=new Float64Array(w*h);for(let i=0,j=0;i<data.length;i++,j+=4)data[i]=(rgba[j]*2126+rgba[j+1]*7152+rgba[j+2]*722)/10000;}
+    uniform.width=w;uniform.height=h;
+    uinputs.forEach((input,i)=>{input.max=i%2===0?w-1:h-1;});
+    uview.style.aspectRatio=`${w} / ${h}`;uview.classList.add('has-image');uq('uniformEmpty').hidden=true;ucanvas.hidden=false;
+    uq('uniformMeta').textContent=`${file.name} · ${w} × ${h}${image.note?' · '+image.note:' · 原始图像亮度'}`;
+    const worker=new Worker(uniformURL);uniform.worker=worker;
+    const fail=message=>{if(generation!==uniform.generation)return;uniform.ready=false;uq('uniformFields').disabled=true;worker.terminate();clearUniformMetrics(message);};
+    worker.onerror=event=>{event.preventDefault();fail('计算失败：'+event.message);};
+    worker.onmessage=({data:m})=>{
+      if(generation!==uniform.generation)return;
+      if(m.type==='ready'){uniform.ready=true;uq('uniformFields').disabled=false;fullUniformRegion();return;}
+      if(m.type==='error'){if(m.id===undefined||m.id===uniform.id)fail('计算失败：'+m.message);return;}
+      if(m.type!=='result'||m.id!==uniform.id)return;
+      const fmt=v=>v===null||!Number.isFinite(v)?'无法计算':formatValue(v);
+      uq('uniformU').textContent=m.uniformity===null?'无法计算':fmt(m.uniformity*100)+'%';
+      uq('uniformRsd').textContent=m.rsd===null?'无法计算':fmt(m.rsd*100)+'%';
+      uq('uniformMean').textContent=fmt(m.mean);uq('uniformStd').textContent=fmt(m.std);uq('uniformMin').textContent=fmt(m.min);uq('uniformMax').textContent=fmt(m.max);
+      uq('uniformCount').textContent=`${number.format(m.n)} / ${number.format(m.area)}`;
+      const r=m.roi;uq('uniformStatus').textContent=`区域 (${r.x0}, ${r.y0}) 至 (${r.x1}, ${r.y1})，${r.x1-r.x0+1} × ${r.y1-r.y0+1} 像素。${m.area>m.n?'已排除 '+number.format(m.area-m.n)+' 个无效像素。':''}${m.reason||''}`;
+    };
+    worker.postMessage({type:'load',width:w,height:h,buffer:data.buffer},[data.buffer]);
+  }catch(error){if(generation!==uniform.generation)return;clearUniformMetrics('读取失败：'+error.message);}
+}
+function uniformPoint(event) {
+  const rect=uview.getBoundingClientRect();
+  return {x:Math.max(0,Math.min(uniform.width-1,Math.floor((event.clientX-rect.left)/rect.width*uniform.width))),y:Math.max(0,Math.min(uniform.height-1,Math.floor((event.clientY-rect.top)/rect.height*uniform.height)))};
+}
+function moveUniformDrag(event) {
+  if(!uniform.drag||uniform.drag.pointerId!==event.pointerId)return;
+  const point=uniformPoint(event),start=uniform.drag.start;
+  uniform.roi={x0:Math.min(start.x,point.x),y0:Math.min(start.y,point.y),x1:Math.max(start.x,point.x),y1:Math.max(start.y,point.y)};drawUniformRoi();
+}
+uview.addEventListener('pointerdown',event=>{
+  if(!uniform.ready||event.button!==0||uniform.drag)return;
+  event.preventDefault();uniform.id++;clearUniformMetrics('正在框选区域，松开后计算。');
+  uniform.drag={pointerId:event.pointerId,start:uniformPoint(event),previous:{...uniform.roi}};
+  uview.setPointerCapture(event.pointerId);moveUniformDrag(event);
+});
+uview.addEventListener('pointermove',moveUniformDrag);
+uview.addEventListener('pointerup',event=>{if(uniform.drag?.pointerId!==event.pointerId)return;moveUniformDrag(event);uniform.drag=null;uview.releasePointerCapture(event.pointerId);requestUniformAnalysis();});
+function cancelUniformDrag(event) {if(uniform.drag?.pointerId!==event.pointerId)return;uniform.roi=uniform.drag.previous;uniform.drag=null;drawUniformRoi();requestUniformAnalysis();}
+uview.addEventListener('pointercancel',cancelUniformDrag);uview.addEventListener('lostpointercapture',cancelUniformDrag);
+uq('uniformForm').onsubmit=event=>{
+  event.preventDefault();if(!uniform.ready)return;
+  const [x0,y0,x1,y1]=uinputs.map(input=>Number(input.value));
+  if(!uinputs.every(input=>input.checkValidity())||x0>x1||y0>y1){uniform.id++;clearUniformMetrics('请输入图像范围内的整数坐标，且左上角不能超过右下角。');return;}
+  uniform.roi={x0,y0,x1,y1};drawUniformRoi();requestUniformAnalysis();
+};
+for(const input of uinputs)input.oninput=()=>{uniform.id++;clearUniformMetrics('坐标已修改，请点击“应用坐标并计算”。');};
+uq('uniformFull').onclick=fullUniformRegion;
+uq('uniformChoose').onclick=()=>uq('uniformFile').click();
+uq('uniformFile').onchange=event=>{const file=event.target.files[0];event.target.value='';loadUniformFile(file);};
+uq('uniformReuse').onclick=()=>{if(selectedAsset)loadUniformFile(selectedAsset.file);else clearUniformMetrics('请先在上方图片库中导入并点击选中一张图片。');};
+attachDrop(uq('uniformDrop'),files=>{const file=Array.from(files).find(supported);if(file)loadUniformFile(file);else clearUniformMetrics('未找到支持的图片。');});
+window.addEventListener('pagehide',()=>uniform.worker?.terminate());
+window.addEventListener('pageshow',event=>{if(event.persisted&&uniform.width){uniform.ready=false;uq('uniformFields').disabled=true;clearUniformMetrics('页面已恢复，请重新导入分析图片。');}});
 </script>
 </body>
 </html>
