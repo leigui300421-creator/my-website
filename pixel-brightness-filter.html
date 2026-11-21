@@ -8,6 +8,17 @@
   <style>
     :root { color-scheme: light; --ink:#13243a; --muted:#637287; --line:#dfe6ee; --blue:#1686e8; --navy:#102a43; }
     * { box-sizing:border-box; }
+    .hidden { display:none !important; }
+    .gate { min-height:100vh; display:grid; place-items:center; padding:24px; }
+    .gate-card { width:min(440px,100%); padding:30px; background:rgba(255,255,255,.96); border:1px solid rgba(211,222,233,.95); border-radius:20px; box-shadow:0 18px 45px rgba(21,43,68,.09); }
+    .gate-card .eyebrow { margin-bottom:10px; }
+    .gate-card h1 { margin:0 0 8px; font-size:28px; letter-spacing:-.03em; }
+    .password-field label { display:block; margin-bottom:6px; color:var(--muted); font-size:14px; font-weight:750; }
+    .password-field input { width:100%; min-height:46px; padding:10px 12px; color:var(--ink); background:#fff; border:1px solid #c9d5e2; border-radius:10px; outline:none; }
+    .password-field input:focus { border-color:var(--blue); box-shadow:0 0 0 3px rgba(22,134,232,.14); }
+    .gate-primary { width:100%; min-height:46px; margin-top:16px; color:#fff; background:var(--navy); border:0; border-radius:10px; font-weight:800; cursor:pointer; }
+    .gate-primary:hover { background:#173c5f; }
+    .gate-error { min-height:20px; margin:10px 0 0; color:#b12d32; font-size:14px; font-weight:700; }
     body { margin:0; color:var(--ink); background:radial-gradient(circle at 12% 0%,#1686e817,transparent 28rem),linear-gradient(180deg,#f8fafc,#eef3f7); font-family:Inter,"PingFang SC","Microsoft YaHei",system-ui,sans-serif; font-size:16px; line-height:1.6; }
     button,input,select { font:inherit; }
     button,.home { min-height:42px; padding:9px 15px; border:1px solid #cad6e2; border-radius:10px; background:white; color:var(--navy); cursor:pointer; text-decoration:none; font-weight:650; }
@@ -85,6 +96,7 @@
     .uniformity .uniform-intro { margin:8px 0 18px; color:var(--muted); }
     .uniformity .uniform-import { padding:18px; margin-bottom:18px; border:1.5px dashed #a9bfd4; }
     .uniformity .uniform-import.over { outline:3px solid var(--blue); }
+    .uniformity.over .uniform-import,.uniformity.over .uniform-view { outline:3px solid var(--blue); outline-offset:2px; }
     .uniformity .uniform-layout { display:grid; grid-template-columns:minmax(0,1.5fr) minmax(300px,1fr); gap:20px; align-items:start; }
     .uniformity .uniform-preview,.uniformity .uniform-controls { padding:18px; min-width:0; }
     .uniformity .uniform-view { touch-action:none; user-select:none; cursor:crosshair; border-radius:0; }
@@ -102,12 +114,23 @@
   </style>
 </head>
 <body>
-<main class="shell">
+<section id="accessGate" class="gate" aria-labelledby="gateTitle">
+  <form id="accessForm" class="gate-card">
+    <p class="eyebrow">IMAGE / PIXEL LAB</p>
+    <h1 id="gateTitle">图像亮度筛选与均匀度分析</h1>
+    <div class="password-field">
+      <label for="accessPassword">访问密码</label>
+      <input id="accessPassword" type="password" autocomplete="current-password" required autofocus>
+    </div>
+    <button class="gate-primary" type="submit">进入分析工具</button>
+    <p id="accessError" class="gate-error" role="alert" aria-live="assertive"></p>
+  </form>
+</section>
+<main id="app" class="shell hidden">
   <header>
     <div><p class="eyebrow">IMAGE / PIXEL LAB</p><h1>图像亮度筛选与均匀度分析</h1><p class="subtitle">选出最亮或最暗的像素，按颜色条着色。四个视图，独立调整，同时比较。</p></div>
     <div class="top-actions"><span class="privacy">图片仅在本地处理</span><a class="home" href="./index.html">返回目录</a></div>
   </header>
-  <h2 class="feature-title">??? ? ?????????</h2>
   <h2 class="feature-title">功能一 · 像素亮度筛选与配色</h2>
   <section class="card import" id="importZone" aria-label="图片导入区域">
     <div><h2>拖入图片或文件夹，开始分析</h2><p class="muted">支持多张导入与子文件夹。TIFF / PNG / JPEG / WebP / BMP / GIF（静态帧）。TIFF 保留原始数值排序。</p></div>
@@ -135,13 +158,13 @@
     <p class="uniform-intro">分析原始图像的整个面或指定矩形区域。均匀度 = 1 − 相对标准差；选区与上方四图筛选独立。</p>
     <div class="card uniform-import" id="uniformDrop">
       <div class="actions"><button id="uniformChoose" class="primary">导入分析图片</button><button id="uniformReuse">使用上方图片库选中的图片</button></div>
-      <p class="library-hint">也可拖入一张图片。支持 TIFF 和普通图片；导入新图默认分析整张图片，不应用上方的筛选或配色。</p>
+      <p class="library-hint">可将图片拖到此处或下方预览区。支持 TIFF 和普通图片；导入新图默认分析整张图片，不应用上方的筛选或配色。</p>
       <input type="file" id="uniformFile" accept=".tif,.tiff,image/tiff,image/png,image/jpeg,image/webp,image/bmp,image/gif,image/avif" hidden>
     </div>
     <div class="uniform-layout">
       <div class="card uniform-preview">
         <div class="viewer uniform-view" id="uniformView" aria-label="在原图上拖动框选均匀度分析区域">
-          <canvas id="uniformCanvas" hidden aria-label="均匀度原图预览"></canvas><div class="empty" id="uniformEmpty"><strong>导入图片开始分析</strong>可在此拖动框选，也可输入右侧像素坐标</div><div class="roi-box" id="uniformBox" hidden></div>
+          <canvas id="uniformCanvas" hidden aria-label="均匀度原图预览"></canvas><div class="empty" id="uniformEmpty"><strong>把图片拖到这里</strong>导入后可拖动框选，也可输入右侧像素坐标</div><div class="roi-box" id="uniformBox" hidden></div>
         </div>
         <p class="stats" id="uniformMeta">尚未导入图片。</p>
       </div>
@@ -176,6 +199,22 @@
   </section>
   <footer>无需安装，无需上传服务器 · 关闭或刷新页面后清除本次图片</footer>
 </main>
+<script id="accessControl">
+'use strict';
+(() => {
+  const sessionKey='pixel-brightness-filter-access-v1';
+  const gate=document.getElementById('accessGate'),app=document.getElementById('app');
+  const input=document.getElementById('accessPassword'),error=document.getElementById('accessError');
+  function unlock() {gate.classList.add('hidden');app.classList.remove('hidden');input.value='';}
+  document.getElementById('accessForm').addEventListener('submit',event=>{
+    event.preventDefault();
+    if(input.value!=='123456') {error.textContent='密码不正确。';input.setAttribute('aria-invalid','true');input.select();return;}
+    try {sessionStorage.setItem(sessionKey,'ok');} catch (_) { /* Login also works when storage is unavailable. */ }
+    error.textContent='';input.removeAttribute('aria-invalid');unlock();
+  });
+  try {if(sessionStorage.getItem(sessionKey)==='ok')unlock();} catch (_) { /* Keep the login form visible. */ }
+})();
+</script>
 <script id="tiffDecoder">
 /* GeoTIFF.js 2.1.3 — https://github.com/geotiffjs/geotiff.js
 The MIT License (MIT)
@@ -495,17 +534,23 @@ async function readEntry(entry) {
   while(true){const batch=await new Promise((resolve,reject)=>reader.readEntries(resolve,reject));if(!batch.length)break;for(const child of batch)files.push(...await readEntry(child));}
   return files;
 }
-function attachDrop(zone,onFiles) {
+function attachDrop(zone,onFiles,{onError=notice,independent=false}={}) {
   let depth=0;
   zone.addEventListener('dragenter',event=>{event.preventDefault();depth++;zone.classList.add('over');});
   zone.addEventListener('dragover',event=>{event.preventDefault();event.dataTransfer.dropEffect='copy';});
   zone.addEventListener('dragleave',()=>{if(--depth<=0){depth=0;zone.classList.remove('over');}});
   zone.addEventListener('drop',async event=>{
-    event.preventDefault();depth=0;zone.classList.remove('over');
+    event.preventDefault();event.stopPropagation();depth=0;zone.classList.remove('over');
     // Capture entries while the browser still grants access to the drag data store.
-    const items=Array.from(event.dataTransfer.items||[]),fallback=Array.from(event.dataTransfer.files),epoch=importEpoch;
-    const entries=items.map(item=>item.webkitGetAsEntry?.()).filter(Boolean);
-    try {const files=entries.length?(await Promise.all(entries.map(readEntry))).flat():fallback;if(epoch===importEpoch)await onFiles(files);}catch(error){notice('无法读取拖入的文件夹，请使用“选择文件夹”：'+error.message);}
+    const transfer=event.dataTransfer;if(!transfer)return;
+    const items=Array.from(transfer.items||[]),fallback=Array.from(transfer.files||[]),epoch=importEpoch;
+    const entries=items.map(item=>{try{return item.webkitGetAsEntry?.();}catch(_){return null;}}).filter(Boolean);
+    try {
+      let files=fallback;
+      if(entries.some(entry=>entry.isDirectory)||(!files.length&&entries.length))files=(await Promise.all(entries.map(readEntry))).flat();
+      if(!files.length)files=items.map(item=>item.getAsFile?.()).filter(Boolean);
+      if(independent||epoch===importEpoch)await onFiles(files);
+    }catch(error){onError('无法读取拖入的图片或文件夹，请使用选择文件按钮：'+error.message);}
   });
 }
 function download(p) {
@@ -624,7 +669,7 @@ uq('uniformFull').onclick=fullUniformRegion;
 uq('uniformChoose').onclick=()=>uq('uniformFile').click();
 uq('uniformFile').onchange=event=>{const file=event.target.files[0];event.target.value='';loadUniformFile(file);};
 uq('uniformReuse').onclick=()=>{if(selectedAsset)loadUniformFile(selectedAsset.file);else clearUniformMetrics('请先在上方图片库中导入并点击选中一张图片。');};
-attachDrop(uq('uniformDrop'),files=>{const file=Array.from(files).find(supported);if(file)loadUniformFile(file);else clearUniformMetrics('未找到支持的图片。');});
+attachDrop(uq('uniformity'),async files=>{const file=Array.from(files).find(supported);if(file)await loadUniformFile(file);else clearUniformMetrics('未找到支持的图片。');},{onError:clearUniformMetrics,independent:true});
 window.addEventListener('pagehide',()=>uniform.worker?.terminate());
 window.addEventListener('pageshow',event=>{if(event.persisted&&uniform.width){uniform.ready=false;uq('uniformFields').disabled=true;clearUniformMetrics('页面已恢复，请重新导入分析图片。');}});
 </script>
