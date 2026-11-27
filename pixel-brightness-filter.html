@@ -114,6 +114,15 @@
     .uniformity .row-band[hidden] { display:none; }
     .uniformity .selection-title { margin:0 0 12px; font-size:16px; }
     .uniformity .selection-actions { margin-bottom:8px; }
+    .uniformity .add-image { font-size:22px; min-width:46px; padding:4px 12px; }
+    .uniformity .compare-images { display:flex; flex-wrap:wrap; gap:10px; margin-top:12px; }
+    .uniformity .compare-image { display:flex; gap:7px; align-items:center; padding:8px; border:1px solid var(--line); border-radius:10px; max-width:100%; }
+    .uniformity .compare-image button { max-width:260px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .uniformity .compare-image button[aria-pressed="true"] { border-color:var(--blue); background:#eaf5ff; }
+    .uniformity .compare-swatch { width:18px; height:4px; flex-shrink:0; }
+    .uniformity .compare-table-wrap { overflow:auto; margin-top:18px; }
+    .uniformity .compare-table { width:100%; border-collapse:collapse; font-size:14px; }
+    .uniformity .compare-table th,.uniformity .compare-table td { padding:10px; text-align:left; border-bottom:1px solid var(--line); white-space:nowrap; }
     .uniformity .selection-actions button[aria-pressed="true"] { border-color:#1686e8; background:#e7f7ff; box-shadow:0 0 0 1px #1686e8; }
     .uniformity .selection-actions #selectProfileRows[aria-pressed="true"] { border-color:#c77a00; background:#fff4dc; box-shadow:0 0 0 1px #c77a00; }
     .uniformity .row-profile { padding:20px; margin-top:20px; }
@@ -168,9 +177,11 @@
     <h2 id="uniformTitle" class="feature-title">功能二 · 图像均匀度分析</h2>
     <p class="uniform-intro">分析原始图像的整个面或指定矩形区域。均匀度 = 1 − 相对标准差；选区与上方四图筛选独立。</p>
     <div class="card uniform-import" id="uniformDrop">
-      <div class="actions"><button id="uniformChoose" class="primary">导入分析图片</button><button id="uniformReuse">使用上方图片库选中的图片</button></div>
-      <p class="library-hint">可将图片拖到此处或下方预览区。支持 TIFF 和普通图片；导入新图默认分析整张图片，不应用上方的筛选或配色。</p>
-      <input type="file" id="uniformFile" accept=".tif,.tiff,image/tiff,image/png,image/jpeg,image/webp,image/bmp,image/gif,image/avif" hidden>
+      <div class="actions"><button id="uniformChoose" class="primary">导入分析图片</button><button id="uniformAdd" class="add-image" type="button" aria-label="增加图片" title="增加图片，可一次选择多张">➕</button><button id="uniformReuse">使用上方图片库选中的图片</button><span id="uniformImageCount" class="muted">0 张</span></div>
+      <p class="library-hint">点击 ➕ 或拖入图片可追加多张同尺寸图片。点击文件名切换参考图，勾选控制曲线显示；全部图片使用同一组指标区域和平均行范围。</p>
+      <input type="file" id="uniformFile" accept=".tif,.tiff,image/tiff,image/png,image/jpeg,image/webp,image/bmp,image/gif,image/avif" multiple hidden>
+      <div id="uniformImageList" class="compare-images" aria-label="分析图片与曲线显示选择"></div>
+      <p id="uniformImportStatus" class="library-hint" role="status" aria-live="polite"></p>
     </div>
     <div class="uniform-layout">
       <div class="card uniform-preview">
@@ -210,6 +221,7 @@
         <p class="formula">普通图片使用原图加权亮度；TIFF 使用解码后的原始亮度值。NaN、无穷值和 NoData 不参与计算。均值为零或相对数据幅度接近零时，RSD 与均匀度显示为无法计算；均匀度不强制限制在 0–100%。负均值或正负混合数据会提示解释限制。</p>
       </div>
     </div>
+    <section class="card row-profile" aria-labelledby="compareMetricsTitle"><h2 id="compareMetricsTitle">同区域指标对比</h2><p class="library-hint" id="compareMetricRegion">导入图片后按统一选区计算，勾选曲线不影响指标列表。</p><div class="compare-table-wrap"><table class="compare-table"><thead><tr><th scope="col">图片</th><th scope="col">均匀度</th><th scope="col">RSD</th><th scope="col">平均值</th><th scope="col">标准差</th><th scope="col">有效 / 区域像素</th><th scope="col">最小值</th><th scope="col">最大值</th><th scope="col">状态</th></tr></thead><tbody id="compareMetricRows"></tbody></table></div></section>
     <section class="card row-profile" aria-labelledby="rowProfileTitle">
       <h2 id="rowProfileTitle">行平均横向一维曲线</h2>
       <p class="library-hint">对所选连续行在每一列分别求平均：横轴为原图 X 像素位置，纵轴为该列的平均亮度 / TIFF 原始值。覆盖图片全部列，与均匀度矩形选区独立。</p>
@@ -612,6 +624,8 @@ window.addEventListener('pageshow',event=>{if(event.persisted)for(const p of pan
 'use strict';
 const uniform={width:0,height:0,roi:null,worker:null,ready:false,id:0,generation:0,drag:null};
 const rowProfile={id:0,start:0,end:0,result:null,bounds:null,drag:null};
+const uniformImages=[];let activeUniformImage=null,uniformImportQueue=Promise.resolve();
+const compareColors=['#1686e8','#de462e','#16865a','#8b4cc4','#bd7700','#008b99','#d43d82','#596579'];
 let selectionMode='roi';
 const uq=id=>document.getElementById(id),uview=uq('uniformView'),ucanvas=uq('uniformCanvas');
 const uinputs=['uniformX0','uniformY0','uniformX1','uniformY1'].map(uq);
@@ -630,6 +644,7 @@ function requestUniformAnalysis() {
   if(!uniform.ready||!uniform.roi)return;
   clearUniformMetrics('正在计算选区内全部有效像素…');
   uniform.worker.postMessage({type:'analyze',id:++uniform.id,roi:{...uniform.roi}});
+  for(const item of uniformImages){item.metric=null;if(item.ready)item.worker.postMessage({type:'analyze',id:uniform.id,roi:{...uniform.roi}});}renderCompareMetrics();
 }
 function fullUniformRegion() {
   if(!uniform.width)return;
@@ -638,6 +653,7 @@ function fullUniformRegion() {
 async function loadUniformFile(file) {
   if(!file)return;
   if(!supported(file)){clearUniformMetrics('请选择 TIFF、PNG、JPEG、WebP、BMP、GIF 或 AVIF 图片。');return;}
+  const previousRoi=uniform.roi?{...uniform.roi}:null,previousRows=[rowProfile.start,rowProfile.end],previousSize=[uniform.width,uniform.height];
   const generation=++uniform.generation;uniform.id++;uniform.ready=false;uniform.drag=null;
   rowProfile.id++;rowProfile.result=null;uq('rowProfileFields').disabled=true;uq('rowBand').hidden=true;uq('rowProfileCanvas').hidden=true;uq('rowProfileStatus').textContent='正在读取图片…';uq('rowProfilePoint').textContent='';
   rowProfile.drag=null;
@@ -663,7 +679,7 @@ async function loadUniformFile(file) {
     worker.onerror=event=>{event.preventDefault();fail('计算失败：'+event.message);};
     worker.onmessage=({data:m})=>{
       if(generation!==uniform.generation)return;
-      if(m.type==='ready'){uniform.ready=true;uq('uniformFields').disabled=false;fullUniformRegion();uq('rowProfileFields').disabled=false;uq('rowStart').max=uq('rowEnd').max=h-1;setProfileRows(0,h-1);return;}
+      if(m.type==='ready'){uniform.ready=true;uq('uniformFields').disabled=false;if(previousRoi&&previousSize[0]===w&&previousSize[1]===h){uniform.roi=previousRoi;drawUniformRoi();requestUniformAnalysis();}else fullUniformRegion();uq('rowProfileFields').disabled=false;uq('rowStart').max=uq('rowEnd').max=h-1;setProfileRows(previousRoi&&previousSize[0]===w&&previousSize[1]===h?previousRows[0]:0,previousRoi&&previousSize[0]===w&&previousSize[1]===h?previousRows[1]:h-1);return;}
       if(m.type==='profile'){if(m.id===rowProfile.id){rowProfile.result={means:new Float64Array(m.buffer),counts:new Uint32Array(m.countsBuffer)};drawRowProfile();}return;}
       if(m.type==='error'&&m.request==='profile'){if(m.id===rowProfile.id)uq('rowProfileStatus').textContent=m.message;return;}
       if(m.type==='error'){if(m.id===undefined||m.id===uniform.id)fail('计算失败：'+m.message);return;}
@@ -708,12 +724,14 @@ uq('uniformForm').onsubmit=event=>{
 for(const input of uinputs)input.oninput=()=>{uniform.id++;clearUniformMetrics('坐标已修改，请点击“应用坐标并计算”。');};
 uq('uniformFull').onclick=fullUniformRegion;
 uq('uniformChoose').onclick=()=>uq('uniformFile').click();
-uq('uniformFile').onchange=event=>{const file=event.target.files[0];event.target.value='';loadUniformFile(file);};
-uq('uniformReuse').onclick=()=>{if(selectedAsset)loadUniformFile(selectedAsset.file);else clearUniformMetrics('请先在上方图片库中导入并点击选中一张图片。');};
-attachDrop(uq('uniformity'),async files=>{const file=Array.from(files).find(supported);if(file)await loadUniformFile(file);else clearUniformMetrics('未找到支持的图片。');},{onError:clearUniformMetrics,independent:true});
+uq('uniformAdd').onclick=()=>uq('uniformFile').click();
+uq('uniformFile').onchange=event=>{const files=Array.from(event.target.files);event.target.value='';addUniformImages(files);};
+uq('uniformReuse').onclick=()=>{if(selectedAsset)addUniformImages([selectedAsset.file]);else clearUniformMetrics('请先在上方图片库中导入并点击选中一张图片。');};
+attachDrop(uq('uniformity'),files=>addUniformImages(files),{onError:clearUniformMetrics,independent:true});
 window.addEventListener('pagehide',()=>uniform.worker?.terminate());
 window.addEventListener('pageshow',event=>{if(event.persisted&&uniform.width){uniform.ready=false;uq('uniformFields').disabled=true;uq('rowProfileFields').disabled=true;clearUniformMetrics('页面已恢复，请重新导入分析图片。');invalidateProfile('页面已恢复，请重新导入分析图片。');}});
 function invalidateProfile(message) {
+  for(const item of uniformImages)item.profile=null;
   rowProfile.id++;rowProfile.result=null;rowProfile.bounds=null;uq('rowProfileCanvas').hidden=true;uq('rowBand').hidden=true;uq('rowProfileStatus').textContent=message;uq('rowProfilePoint').textContent='';
 }
 function drawProfileBand() {
@@ -729,18 +747,20 @@ function requestProfile() {
   if(!uniform.ready)return;
   invalidateProfile('正在逐列计算所选行的平均值…');drawProfileBand();
   uniform.worker.postMessage({type:'profile',id:rowProfile.id,start:rowProfile.start,end:rowProfile.end});
+  for(const item of uniformImages)if(item.ready)item.worker.postMessage({type:'profile',id:rowProfile.id,start:rowProfile.start,end:rowProfile.end});
 }
+function profileSeries() {return uniformImages.length?uniformImages.filter(item=>item.visible&&item.profile).map(item=>({...item.profile,name:item.file.name,color:item.color})):rowProfile.result?[{...rowProfile.result,name:'当前图片',color:'#1686e8'}]:[];}
 function drawRowProfile() {
-  if(!rowProfile.result)return;
+  const series=profileSeries();if(!series.length){uq('rowProfileCanvas').hidden=true;if(uniformImages.length)uq('rowProfileStatus').textContent=uniformImages.some(item=>item.visible)?'正在计算所选图片的曲线…':'请在图片列表中勾选需要显示的曲线。';return;}
   const canvas=uq('rowProfileCanvas');canvas.hidden=false;
   const size=canvas.getBoundingClientRect();if(!size.width)return;
   const w=size.width,h=320,dpr=Math.min(window.devicePixelRatio||1,2);
   canvas.width=Math.round(w*dpr);canvas.height=h*dpr;
   const ctx=canvas.getContext('2d');ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,w,h);
-  const {means,counts}=rowProfile.result;let lo=Infinity,hi=-Infinity,valid=0;
-  for(const v of means)if(Number.isFinite(v)){lo=Math.min(lo,v);hi=Math.max(hi,v);valid++;}
-  const label=`第 ${rowProfile.start}–${rowProfile.end} 行，共 ${rowProfile.end-rowProfile.start+1} 行；${means.length} 列，${valid} 列有有效平均值。`;
-  uq('rowProfileStatus').textContent=label+(valid<means.length?' 无有效值的列不连线。':'');
+  const means=series[0].means;let lo=Infinity,hi=-Infinity,valid=0;
+  for(const line of series)for(const v of line.means)if(Number.isFinite(v)){lo=Math.min(lo,v);hi=Math.max(hi,v);valid++;}
+  const label=`第 ${rowProfile.start}–${rowProfile.end} 行，共 ${rowProfile.end-rowProfile.start+1} 行；显示 ${series.length} 条曲线，覆盖 ${means.length} 列。`;
+  uq('rowProfileStatus').textContent=label+' 无有效值的列不连线；曲线颜色与图片列表一致。';
   if(!valid){uq('rowProfileStatus').textContent=label+' 所选行没有有效数据，无法绘制曲线。';canvas.hidden=true;return;}
   const dataMin=lo,dataMax=hi;
   if(lo===hi){const pad=Math.max(Math.abs(lo)*.05,1);lo-=pad;hi+=pad;}else {const pad=(hi-lo)*.06;lo-=pad;hi+=pad;}
@@ -752,11 +772,11 @@ function drawRowProfile() {
   for(let i=0;i<=tickCount;i++){const x=tickCount?Math.round(i/tickCount*(means.length-1)):0;ctx.fillStyle='#637287';ctx.textAlign='center';ctx.fillText(String(x),px(x),bottom+22);}
   ctx.strokeStyle='#9cafc2';ctx.beginPath();ctx.moveTo(left,top);ctx.lineTo(left,bottom);ctx.lineTo(right,bottom);ctx.stroke();
   ctx.fillStyle='#13243a';ctx.textAlign='left';ctx.fillText('所选行的列均值',left,17);ctx.textAlign='center';ctx.fillText('横向像素位置 X',(left+right)/2,h-10);
-  ctx.strokeStyle='#1686e8';ctx.lineWidth=1.8;ctx.beginPath();let connected=false;
+  for(const line of series){const means=line.means;ctx.strokeStyle=line.color;ctx.lineWidth=1.8;ctx.beginPath();let connected=false;
   for(let x=0;x<means.length;x++){if(!Number.isFinite(means[x])){connected=false;continue;}if(connected)ctx.lineTo(px(x),py(means[x]));else ctx.moveTo(px(x),py(means[x]));connected=true;}
   ctx.stroke();
   // Isolated valid columns, including a one-column image, must remain visible.
-  ctx.fillStyle='#1686e8';for(let x=0;x<means.length;x++)if(Number.isFinite(means[x])&&!Number.isFinite(means[x-1])&&!Number.isFinite(means[x+1])){ctx.beginPath();ctx.arc(px(x),py(means[x]),3,0,Math.PI*2);ctx.fill();}
+  ctx.fillStyle=line.color;for(let x=0;x<means.length;x++)if(Number.isFinite(means[x])&&!Number.isFinite(means[x-1])&&!Number.isFinite(means[x+1])){ctx.beginPath();ctx.arc(px(x),py(means[x]),3,0,Math.PI*2);ctx.fill();}}
   canvas.setAttribute('aria-label',`${label} 平均值范围 ${formatValue(dataMin)} 至 ${formatValue(dataMax)}。`);
 }
 uq('rowProfileForm').onsubmit=event=>{event.preventDefault();const a=uq('rowStart'),b=uq('rowEnd');if(a.checkValidity()&&b.checkValidity())setProfileRows(Number(a.value),Number(b.value));};
@@ -778,12 +798,71 @@ function beginRowDrag(event) {event.preventDefault();rowProfile.drag={pointerId:
 function finishRowDrag(event) {if(rowProfile.drag?.pointerId!==event.pointerId)return;moveRowDrag(event);rowProfile.drag=null;uview.releasePointerCapture(event.pointerId);requestProfile();}
 function cancelRowDrag(event) {if(rowProfile.drag?.pointerId!==event.pointerId)return;[rowProfile.start,rowProfile.end]=rowProfile.drag.previous;rowProfile.drag=null;requestProfile();}
 uq('rowProfileCanvas').addEventListener('pointermove',event=>{
-  if(!rowProfile.result||!rowProfile.bounds)return;
+  const series=profileSeries();if(!series.length||!rowProfile.bounds)return;
   const {left,right}=rowProfile.bounds,rect=event.currentTarget.getBoundingClientRect(),x=Math.max(0,Math.min(uniform.width-1,Math.round((event.clientX-rect.left-left)/(right-left)*(uniform.width-1))));
-  const v=rowProfile.result.means[x],n=rowProfile.result.counts[x];uq('rowProfilePoint').textContent=`X = ${x}；平均值 ${Number.isFinite(v)?formatValue(v):'无有效值'}；有效行数 ${n} / ${rowProfile.end-rowProfile.start+1}。`;
+  uq('rowProfilePoint').textContent=`X = ${x}；`+series.map(line=>`${line.name}：${Number.isFinite(line.means[x])?formatValue(line.means[x]):'无有效值'}（有效行 ${line.counts[x]}）`).join('；');
 });
-window.addEventListener('resize',()=>{if(rowProfile.result)drawRowProfile();});
-if(typeof ResizeObserver!=='undefined')new ResizeObserver(()=>{if(rowProfile.result)drawRowProfile();}).observe(uq('rowProfileCanvas').parentElement);
+window.addEventListener('resize',()=>{if(profileSeries().length)drawRowProfile();});
+if(typeof ResizeObserver!=='undefined')new ResizeObserver(()=>{if(profileSeries().length)drawRowProfile();}).observe(uq('rowProfileCanvas').parentElement);
+function renderUniformImages() {
+  uq('uniformImageCount').textContent=`${uniformImages.length} 张`;
+  const list=uq('uniformImageList');list.replaceChildren();
+  for(const item of uniformImages){
+    const wrap=document.createElement('div');wrap.className='compare-image';
+    const check=document.createElement('input');check.type='checkbox';check.checked=item.visible;check.setAttribute('aria-label',`显示 ${item.file.name} 的曲线`);
+    check.onchange=()=>{item.visible=check.checked;drawRowProfile();};
+    const swatch=document.createElement('span');swatch.className='compare-swatch';swatch.style.background=item.color;
+    const button=document.createElement('button');button.type='button';button.textContent=item.file.name;button.title=`${item.file.name} · ${item.width} × ${item.height}`;button.setAttribute('aria-pressed',String(item===activeUniformImage));
+    button.onclick=async()=>{if(item===activeUniformImage)return;activeUniformImage=item;renderUniformImages();await loadUniformFile(item.file);};
+    wrap.append(check,swatch,button);list.append(wrap);
+  }
+}
+function renderCompareMetrics() {
+  if(!uniformImages.length)return;
+  const body=uq('compareMetricRows');body.replaceChildren();
+  if(uniform.roi){const r=uniform.roi;uq('compareMetricRegion').textContent=`所有图片统一使用区域 (${r.x0}, ${r.y0}) 至 (${r.x1}, ${r.y1})。`;}
+  const value=v=>v===null||!Number.isFinite(v)?'无法计算':formatValue(v),percent=v=>v===null||!Number.isFinite(v)?'无法计算':formatValue(v*100)+'%';
+  for(const item of uniformImages){const row=document.createElement('tr'),m=item.metric;
+    const cells=m?[item.file.name,percent(m.uniformity),percent(m.rsd),value(m.mean),value(m.std),`${m.n} / ${m.area}`,value(m.min),value(m.max),m.reason||'已完成']:[item.file.name,'—','—','—','—','—','—','—',item.error||'计算中…'];
+    for(const text of cells){const cell=document.createElement('td');cell.textContent=text;row.append(cell);}body.append(row);
+  }
+}
+function createComparisonWorker(item,data) {
+  const worker=new Worker(uniformURL);item.worker=worker;
+  const fail=message=>{item.error=message;item.ready=false;worker.terminate();renderCompareMetrics();};
+  worker.onerror=event=>{event.preventDefault();fail('计算失败：'+event.message);};
+  worker.onmessage=({data:m})=>{
+    if(m.type==='ready'){item.ready=true;if(uniform.ready&&uniform.roi){worker.postMessage({type:'analyze',id:uniform.id,roi:{...uniform.roi}});worker.postMessage({type:'profile',id:rowProfile.id,start:rowProfile.start,end:rowProfile.end});}return;}
+    if(m.type==='error'){fail(m.message);return;}
+    if(m.type==='result'&&m.id===uniform.id){item.metric=m;renderCompareMetrics();}
+    if(m.type==='profile'&&m.id===rowProfile.id){item.profile={means:new Float64Array(m.buffer),counts:new Uint32Array(m.countsBuffer)};drawRowProfile();}
+  };
+  worker.postMessage({type:'load',width:item.width,height:item.height,buffer:data.buffer},[data.buffer]);
+}
+function addUniformImages(files) {
+  const selected=Array.from(files);
+  uniformImportQueue=uniformImportQueue.then(async()=>{
+    const candidates=selected.filter(supported),errors=[];if(!candidates.length){uq('uniformImportStatus').textContent='未找到支持的图片。';return;}
+    for(const file of candidates){
+      try{
+        if(uniformImages.some(item=>item.file===file||(item.file.name===file.name&&item.file.size===file.size&&item.file.lastModified===file.lastModified))){errors.push(`${file.name}：已在列表中`);continue;}
+        uq('uniformImportStatus').textContent=`正在增加 ${file.name}…`;
+        const image=await decode(file),width=image.naturalWidth,height=image.naturalHeight;
+        if(!width||!height||width*height>40000000)throw new Error('单张图片最多支持 4000 万像素');
+        if(uniformImages.length&&(width!==uniformImages[0].width||height!==uniformImages[0].height))throw new Error(`尺寸 ${width} × ${height} 与首图 ${uniformImages[0].width} × ${uniformImages[0].height} 不一致，未加入`);
+        let data;
+        if(image.values)data=image.values.slice();
+        else {const canvas=document.createElement('canvas');canvas.width=width;canvas.height=height;const ctx=canvas.getContext('2d',{willReadFrequently:true});ctx.fillStyle='#000';ctx.fillRect(0,0,width,height);ctx.drawImage(image.source||image,0,0);const rgba=ctx.getImageData(0,0,width,height).data;data=new Float64Array(width*height);for(let i=0,j=0;i<data.length;i++,j+=4)data[i]=(rgba[j]*2126+rgba[j+1]*7152+rgba[j+2]*722)/10000;}
+        const index=uniformImages.length,item={file,width,height,visible:true,color:compareColors[index]||`hsl(${index*137.508%360} 65% 40%)`,worker:null,ready:false,metric:null,profile:null,error:''};
+        uniformImages.push(item);createComparisonWorker(item,data);renderUniformImages();renderCompareMetrics();
+        if(!activeUniformImage){activeUniformImage=item;renderUniformImages();await loadUniformFile(file);}
+      }catch(error){errors.push(`${file.name}：${error.message}`);}
+    }
+    uq('uniformImportStatus').textContent=`当前 ${uniformImages.length} 张图片。${errors.length?' '+errors.join('；'):''}`;
+  }).catch(error=>{uq('uniformImportStatus').textContent='导入失败：'+error.message;});
+  return uniformImportQueue;
+}
+window.addEventListener('pagehide',()=>{for(const item of uniformImages){item.worker?.terminate();item.ready=false;}});
 </script>
 </body>
 </html>

@@ -35,7 +35,7 @@ async function run() {
   const nodes=new Map(),registrations=[];const uiContext={document:{getElementById:id=>{if(!nodes.has(id))nodes.set(id,node());return nodes.get(id);}},Blob:class{},URL:{createObjectURL:()=> 'blob:uniform-test'},window:{addEventListener(){}},attachDrop:(zone,callback,options)=>registrations.push({zone,callback,options}),supported:file=>/\.tiff?$/i.test(file.name)};
   vm.createContext(uiContext);vm.runInContext(script('uniformityUI'),uiContext);
   assert.equal(registrations.length,1);assert.equal(registrations[0].zone,nodes.get('uniformity'));assert.equal(registrations[0].options.independent,true);
-  vm.runInContext('loadUniformFile=async file=>{globalThis.receivedFile=file;}',uiContext);
+  vm.runInContext('addUniformImages=async files=>{globalThis.receivedFile=files[0];}',uiContext);
   await registrations[0].callback([file]);assert.equal(uiContext.receivedFile,file);
   // Selecting profile rows must not change the two-dimensional uniformity ROI.
   const view=nodes.get('uniformView');view.getBoundingClientRect=()=>({left:0,top:0,width:800,height:400});view.setPointerCapture=()=>{};view.releasePointerCapture=()=>{};
