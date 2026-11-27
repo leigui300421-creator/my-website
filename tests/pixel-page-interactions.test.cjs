@@ -37,6 +37,33 @@ async function run() {
   assert.equal(registrations.length,1);assert.equal(registrations[0].zone,nodes.get('uniformity'));assert.equal(registrations[0].options.independent,true);
   vm.runInContext('loadUniformFile=async file=>{globalThis.receivedFile=file;}',uiContext);
   await registrations[0].callback([file]);assert.equal(uiContext.receivedFile,file);
+  // Selecting profile rows must not change the two-dimensional uniformity ROI.
+  const view=nodes.get('uniformView');view.getBoundingClientRect=()=>({left:0,top:0,width:800,height:400});view.setPointerCapture=()=>{};view.releasePointerCapture=()=>{};
+  vm.runInContext("globalThis.sent=[];uniform.ready=true;uniform.width=8;uniform.height=10;uniform.roi={x0:1,y0:2,x1:6,y1:8};uniform.worker={postMessage:m=>sent.push(m)};rowProfile.start=0;rowProfile.end=9;",uiContext);
+  const rowView=nodes.get('rowSelectView');rowView.getBoundingClientRect=()=>({left:0,top:0,width:800,height:400});rowView.setPointerCapture=()=>{};rowView.releasePointerCapture=()=>{};
+  const pointer=(x,y)=>({pointerId:1,button:0,clientX:x,clientY:y,preventDefault(){}});
+  rowView.handlers.pointerdown(pointer(100,300));rowView.handlers.pointerup(pointer(400,80));
+  assert.equal(uiContext.sent.at(-1).type,'profile');assert.equal(uiContext.sent.at(-1).start,2);assert.equal(uiContext.sent.at(-1).end,7);
+  assert.equal(vm.runInContext('JSON.stringify(uniform.roi)',uiContext),'{"x0":1,"y0":2,"x1":6,"y1":8}');
+  view.handlers.pointerdown(pointer(100,80));view.handlers.pointerup(pointer(500,200));
+  assert.equal(uiContext.sent.at(-1).type,'analyze');assert.equal(vm.runInContext('rowProfile.start+":"+rowProfile.end',uiContext),'2:7');
+  const savedRoi=vm.runInContext('JSON.stringify(uniform.roi)',uiContext);
+  rowView.handlers.pointerdown(pointer(0,0));rowView.handlers.pointermove(pointer(0,399));rowView.handlers.pointercancel(pointer(0,399));
+  assert.equal(vm.runInContext('rowProfile.start+":"+rowProfile.end',uiContext),'2:7');assert.equal(vm.runInContext('JSON.stringify(uniform.roi)',uiContext),savedRoi);
+  rowView.handlers.pointerdown(pointer(0,-100));rowView.handlers.pointerup(pointer(0,999));
+  assert.equal(uiContext.sent.at(-1).start,0);assert.equal(uiContext.sent.at(-1).end,9);
+  assert.ok(!html.includes('id="uniformDragMode"'),'Dedicated image windows replace the shared selection mode');
+  // Exercise the real plotting function against a canvas recorder, including NaN gaps.
+  const plot=nodes.get('rowProfileCanvas'),commands=[];
+  plot.getBoundingClientRect=()=>({left:0,top:0,width:640,height:320});
+  plot.getContext=()=>new Proxy({}, {get:(_,method)=>(...args)=>commands.push([method,...args]),set:()=>true});
+  uiContext.formatValue=String;uiContext.number=new Intl.NumberFormat('zh-CN');
+  vm.runInContext('rowProfile.result={means:new Float64Array([1,NaN,3]),counts:new Uint32Array([6,0,6])};drawRowProfile();',uiContext);
+  assert.equal(plot.hidden,false);assert.equal(plot.width,640);assert.equal(plot.height,320);
+  assert.ok(commands.some(([method,label])=>method==='fillText'&&label.includes('X')));
+  assert.ok(commands.some(([method])=>method==='arc'),'Isolated valid columns remain visible');
+  vm.runInContext("invalidateProfile('changed');",uiContext);assert.equal(plot.hidden,true);
   console.log('PASS: page text, password rejection/unlock/session/storage fallback, file and folder drops, preview routing and local error reporting.');
+  console.log('PASS: independent row/ROI drag routing, reverse drag, curve axes, missing-value points and stale-curve clearing.');
 }
 run().catch(error=>{console.error(error);process.exitCode=1;});
