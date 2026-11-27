@@ -40,19 +40,21 @@ async function run() {
   // Selecting profile rows must not change the two-dimensional uniformity ROI.
   const view=nodes.get('uniformView');view.getBoundingClientRect=()=>({left:0,top:0,width:800,height:400});view.setPointerCapture=()=>{};view.releasePointerCapture=()=>{};
   vm.runInContext("globalThis.sent=[];uniform.ready=true;uniform.width=8;uniform.height=10;uniform.roi={x0:1,y0:2,x1:6,y1:8};uniform.worker={postMessage:m=>sent.push(m)};rowProfile.start=0;rowProfile.end=9;",uiContext);
-  const rowView=nodes.get('rowSelectView');rowView.getBoundingClientRect=()=>({left:0,top:0,width:800,height:400});rowView.setPointerCapture=()=>{};rowView.releasePointerCapture=()=>{};
+  const rowView=view;nodes.get('selectProfileRows').onclick();
   const pointer=(x,y)=>({pointerId:1,button:0,clientX:x,clientY:y,preventDefault(){}});
-  rowView.handlers.pointerdown(pointer(100,300));rowView.handlers.pointerup(pointer(400,80));
+  rowView.handlers.pointerdown(pointer(100,300));nodes.get('selectMetricRoi').onclick();rowView.handlers.pointerup(pointer(400,80));
   assert.equal(uiContext.sent.at(-1).type,'profile');assert.equal(uiContext.sent.at(-1).start,2);assert.equal(uiContext.sent.at(-1).end,7);
   assert.equal(vm.runInContext('JSON.stringify(uniform.roi)',uiContext),'{"x0":1,"y0":2,"x1":6,"y1":8}');
-  view.handlers.pointerdown(pointer(100,80));view.handlers.pointerup(pointer(500,200));
+  nodes.get('selectMetricRoi').onclick();view.handlers.pointerdown(pointer(100,80));view.handlers.pointerup(pointer(500,200));
   assert.equal(uiContext.sent.at(-1).type,'analyze');assert.equal(vm.runInContext('rowProfile.start+":"+rowProfile.end',uiContext),'2:7');
   const savedRoi=vm.runInContext('JSON.stringify(uniform.roi)',uiContext);
+  nodes.get('selectProfileRows').onclick();
   rowView.handlers.pointerdown(pointer(0,0));rowView.handlers.pointermove(pointer(0,399));rowView.handlers.pointercancel(pointer(0,399));
   assert.equal(vm.runInContext('rowProfile.start+":"+rowProfile.end',uiContext),'2:7');assert.equal(vm.runInContext('JSON.stringify(uniform.roi)',uiContext),savedRoi);
   rowView.handlers.pointerdown(pointer(0,-100));rowView.handlers.pointerup(pointer(0,999));
   assert.equal(uiContext.sent.at(-1).start,0);assert.equal(uiContext.sent.at(-1).end,9);
-  assert.ok(!html.includes('id="uniformDragMode"'),'Dedicated image windows replace the shared selection mode');
+  assert.ok(!html.includes('id="rowSelectView"')&&!html.includes('id="rowSelectCanvas"'),'Only one image preview is needed for both selections');
+  assert.match(html,/id="selectMetricRoi"[^>]*>指标计算</);assert.match(html,/id="selectProfileRows"[^>]*>一维曲线</);
   // Exercise the real plotting function against a canvas recorder, including NaN gaps.
   const plot=nodes.get('rowProfileCanvas'),commands=[];
   plot.getBoundingClientRect=()=>({left:0,top:0,width:640,height:320});

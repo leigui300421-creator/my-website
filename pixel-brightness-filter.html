@@ -113,8 +113,9 @@
     .uniformity .row-band { position:absolute; left:0; width:100%; border:2px solid #ffb020; background:#ffb02022; pointer-events:none; z-index:2; }
     .uniformity .row-band[hidden] { display:none; }
     .uniformity .selection-title { margin:0 0 12px; font-size:16px; }
-    .uniformity .row-select-layout { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.2fr); gap:20px; align-items:start; }
-    @media(max-width:800px) { .uniformity .row-select-layout { grid-template-columns:1fr; } }
+    .uniformity .selection-actions { margin-bottom:8px; }
+    .uniformity .selection-actions button[aria-pressed="true"] { border-color:#1686e8; background:#e7f7ff; box-shadow:0 0 0 1px #1686e8; }
+    .uniformity .selection-actions #selectProfileRows[aria-pressed="true"] { border-color:#c77a00; background:#fff4dc; box-shadow:0 0 0 1px #c77a00; }
     .uniformity .row-profile { padding:20px; margin-top:20px; }
     .uniformity .row-inputs { display:flex; gap:12px; flex-wrap:wrap; align-items:end; margin:14px 0; }
     .uniformity .row-inputs label { flex:1 1 130px; }
@@ -173,9 +174,11 @@
     </div>
     <div class="uniform-layout">
       <div class="card uniform-preview">
-        <h3 class="selection-title">均匀度指标框选（青色）</h3>
-        <div class="viewer uniform-view" id="uniformView" aria-label="在原图上拖动框选均匀度分析区域">
+        <div class="actions selection-actions" role="group" aria-label="图片框选操作"><button id="selectMetricRoi" type="button" aria-pressed="true">指标计算</button><button id="selectProfileRows" type="button" aria-pressed="false">一维曲线</button></div>
+        <p class="library-hint" id="selectionHint">当前操作：指标计算。拖动框选青色矩形，松开后更新指标。</p>
+        <div class="viewer uniform-view" id="uniformView" tabindex="-1" aria-label="图片共享框选窗口，可选择指标计算或一维曲线操作">
           <canvas id="uniformCanvas" hidden aria-label="均匀度原图预览"></canvas><div class="empty" id="uniformEmpty"><strong>把图片拖到这里</strong>导入后可拖动框选，也可输入右侧像素坐标</div><div class="roi-box" id="uniformBox" hidden></div>
+          <div class="row-band" id="rowBand" hidden></div>
         </div>
         <p class="stats" id="uniformMeta">尚未导入图片。</p>
       </div>
@@ -213,15 +216,8 @@
       <form id="rowProfileForm"><fieldset id="rowProfileFields" disabled style="border:0;padding:0;margin:0;min-width:0">
         <div class="row-inputs"><label class="field">起始行 Y<input id="rowStart" type="number" min="0" step="1" value="0" required></label><label class="field">结束行 Y<input id="rowEnd" type="number" min="0" step="1" value="0" required></label><button class="primary" type="submit">计算并绘制曲线</button><button type="button" id="rowSelectOnImage">在原图拖选行</button><button type="button" id="rowUseRoi">使用均匀度选区的行</button><button type="button" id="rowAll">全部行</button></div>
       </fieldset></form>
-      <p class="library-hint">输入起止行号，或直接在下方专用图窗中按住鼠标纵向拖选。行号从 0 开始，包含起止两行；橙色条带覆盖所有列。此操作不改变上方青色均匀度选区。</p>
-      <div class="row-select-layout">
-        <div><h3 class="selection-title">曲线平均行框选（橙色）</h3>
-          <div class="viewer uniform-view" id="rowSelectView" tabindex="-1" aria-label="独立的曲线平均行选区，按住鼠标纵向拖选">
-            <canvas id="rowSelectCanvas" hidden aria-label="曲线选行专用原图"></canvas><div class="empty" id="rowSelectEmpty"><strong>导入第二部分图片后可直接框选</strong>在此纵向拖动，松开后更新一维曲线</div><div class="row-band" id="rowBand" hidden></div>
-          </div>
-        </div>
-        <div><h3 class="selection-title">行平均横向曲线</h3><canvas class="profile-plot" id="rowProfileCanvas" hidden role="img" aria-label="所选行逐列平均的横向一维曲线"></canvas></div>
-      </div>
+      <p class="library-hint">输入起止行号，或点击图片上方的“一维曲线”，再在同一图片窗口中纵向拖选。行号从 0 开始，包含起止两行；橙色条带覆盖所有列，不改变青色指标选区。</p>
+      <h3 class="selection-title">行平均横向曲线</h3><canvas class="profile-plot" id="rowProfileCanvas" hidden role="img" aria-label="所选行逐列平均的横向一维曲线"></canvas>
       <p class="stats" id="rowProfileStatus" role="status" aria-live="polite">导入第二部分的图片后自动绘制全部行的平均曲线。</p>
       <p class="library-hint" id="rowProfilePoint"></p>
     </section>
@@ -616,6 +612,7 @@ window.addEventListener('pageshow',event=>{if(event.persisted)for(const p of pan
 'use strict';
 const uniform={width:0,height:0,roi:null,worker:null,ready:false,id:0,generation:0,drag:null};
 const rowProfile={id:0,start:0,end:0,result:null,bounds:null,drag:null};
+let selectionMode='roi';
 const uq=id=>document.getElementById(id),uview=uq('uniformView'),ucanvas=uq('uniformCanvas');
 const uinputs=['uniformX0','uniformY0','uniformX1','uniformY1'].map(uq);
 const uniformURL=URL.createObjectURL(new Blob([uq('uniformWorkerSource').textContent],{type:'text/javascript'}));
@@ -643,7 +640,7 @@ async function loadUniformFile(file) {
   if(!supported(file)){clearUniformMetrics('请选择 TIFF、PNG、JPEG、WebP、BMP、GIF 或 AVIF 图片。');return;}
   const generation=++uniform.generation;uniform.id++;uniform.ready=false;uniform.drag=null;
   rowProfile.id++;rowProfile.result=null;uq('rowProfileFields').disabled=true;uq('rowBand').hidden=true;uq('rowProfileCanvas').hidden=true;uq('rowProfileStatus').textContent='正在读取图片…';uq('rowProfilePoint').textContent='';
-  rowProfile.drag=null;uq('rowSelectCanvas').hidden=true;uq('rowSelectCanvas').width=uq('rowSelectCanvas').height=1;uq('rowSelectEmpty').hidden=false;uq('rowSelectView').classList.remove('has-image');uq('rowSelectView').style.removeProperty('aspect-ratio');
+  rowProfile.drag=null;
   uniform.worker?.terminate();uniform.worker=null;uniform.roi=null;uniform.width=uniform.height=0;
   uq('uniformFields').disabled=true;uq('uniformBox').hidden=true;ucanvas.hidden=true;ucanvas.width=ucanvas.height=1;
   uq('uniformEmpty').hidden=false;uview.classList.remove('has-image');uview.style.removeProperty('aspect-ratio');
@@ -654,7 +651,6 @@ async function loadUniformFile(file) {
     if(!w||!h||w*h>40000000)throw new Error('单张图片最多支持 4000 万像素。');
     ucanvas.width=w;ucanvas.height=h;const ctx=ucanvas.getContext('2d',{willReadFrequently:true});
     ctx.fillStyle='#000';ctx.fillRect(0,0,w,h);ctx.drawImage(image.source||image,0,0);
-    const rowCanvas=uq('rowSelectCanvas');rowCanvas.width=w;rowCanvas.height=h;rowCanvas.getContext('2d').drawImage(ucanvas,0,0);rowCanvas.hidden=false;uq('rowSelectEmpty').hidden=true;uq('rowSelectView').classList.add('has-image');uq('rowSelectView').style.aspectRatio=`${w} / ${h}`;
     let data;
     if(image.values)data=image.values.slice();
     else {const rgba=ctx.getImageData(0,0,w,h).data;data=new Float64Array(w*h);for(let i=0,j=0;i<data.length;i++,j+=4)data[i]=(rgba[j]*2126+rgba[j+1]*7152+rgba[j+2]*722)/10000;}
@@ -692,15 +688,17 @@ function moveUniformDrag(event) {
   uniform.roi={x0:Math.min(start.x,point.x),y0:Math.min(start.y,point.y),x1:Math.max(start.x,point.x),y1:Math.max(start.y,point.y)};drawUniformRoi();
 }
 uview.addEventListener('pointerdown',event=>{
-  if(!uniform.ready||event.button!==0||uniform.drag)return;
+  if(!uniform.ready||event.button!==0||uniform.drag||rowProfile.drag)return;
+  if(selectionMode==='rows'){beginRowDrag(event);return;}
   event.preventDefault();uniform.id++;clearUniformMetrics('正在框选区域，松开后计算。');
   uniform.drag={pointerId:event.pointerId,start:uniformPoint(event),previous:{...uniform.roi}};
   uview.setPointerCapture(event.pointerId);moveUniformDrag(event);
 });
-uview.addEventListener('pointermove',moveUniformDrag);
-uview.addEventListener('pointerup',event=>{if(uniform.drag?.pointerId!==event.pointerId)return;moveUniformDrag(event);uniform.drag=null;uview.releasePointerCapture(event.pointerId);requestUniformAnalysis();});
+uview.addEventListener('pointermove',event=>{if(rowProfile.drag)moveRowDrag(event);else moveUniformDrag(event);});
+uview.addEventListener('pointerup',event=>{if(rowProfile.drag){finishRowDrag(event);return;}if(uniform.drag?.pointerId!==event.pointerId)return;moveUniformDrag(event);uniform.drag=null;uview.releasePointerCapture(event.pointerId);requestUniformAnalysis();});
 function cancelUniformDrag(event) {if(uniform.drag?.pointerId!==event.pointerId)return;uniform.roi=uniform.drag.previous;uniform.drag=null;drawUniformRoi();requestUniformAnalysis();}
-uview.addEventListener('pointercancel',cancelUniformDrag);uview.addEventListener('lostpointercapture',cancelUniformDrag);
+const cancelSelection=event=>{if(rowProfile.drag)cancelRowDrag(event);else cancelUniformDrag(event);};
+uview.addEventListener('pointercancel',cancelSelection);uview.addEventListener('lostpointercapture',cancelSelection);
 uq('uniformForm').onsubmit=event=>{
   event.preventDefault();if(!uniform.ready)return;
   const [x0,y0,x1,y1]=uinputs.map(input=>Number(input.value));
@@ -766,15 +764,19 @@ for(const id of ['rowStart','rowEnd'])uq(id).oninput=()=>invalidateProfile('行�
 uq('rowAll').onclick=()=>setProfileRows(0,uniform.height-1);
 uq('rowUseRoi').onclick=()=>{if(uniform.roi)setProfileRows(uniform.roi.y0,uniform.roi.y1);};
 uq('rowSelectOnImage').textContent='手动框选平均行';
-uq('rowSelectOnImage').onclick=()=>{uq('rowSelectView').scrollIntoView({behavior:'smooth',block:'center'});uq('rowSelectView').focus({preventScroll:true});uq('rowProfileStatus').textContent='请在曲线专用图窗中纵向拖选需要平均的行。';};
-const rowView=uq('rowSelectView');
-function rowPoint(event) {const rect=rowView.getBoundingClientRect();return Math.max(0,Math.min(uniform.height-1,Math.floor((event.clientY-rect.top)/rect.height*uniform.height)));}
+function setSelectionMode(mode) {
+  if(uniform.drag||rowProfile.drag)return;
+  selectionMode=mode;
+  uq('selectMetricRoi').setAttribute('aria-pressed',String(mode==='roi'));uq('selectProfileRows').setAttribute('aria-pressed',String(mode==='rows'));
+  uq('selectionHint').textContent=mode==='roi'?'当前操作：指标计算。拖动框选青色矩形，松开后更新指标。':'当前操作：一维曲线。纵向拖选橙色行范围，松开后更新曲线。';
+}
+uq('selectMetricRoi').onclick=()=>setSelectionMode('roi');uq('selectProfileRows').onclick=()=>setSelectionMode('rows');
+uq('rowSelectOnImage').onclick=()=>{setSelectionMode('rows');uview.scrollIntoView({behavior:'smooth',block:'center'});uview.focus({preventScroll:true});uq('rowProfileStatus').textContent='请在图片窗口中纵向拖选需要平均的行。';};
+function rowPoint(event) {const rect=uview.getBoundingClientRect();return Math.max(0,Math.min(uniform.height-1,Math.floor((event.clientY-rect.top)/rect.height*uniform.height)));}
 function moveRowDrag(event) {if(rowProfile.drag?.pointerId!==event.pointerId)return;const y=rowPoint(event),start=rowProfile.drag.start;rowProfile.start=Math.min(start,y);rowProfile.end=Math.max(start,y);drawProfileBand();}
-rowView.addEventListener('pointerdown',event=>{if(!uniform.ready||event.button!==0||rowProfile.drag)return;event.preventDefault();rowProfile.drag={pointerId:event.pointerId,start:rowPoint(event),previous:[rowProfile.start,rowProfile.end]};invalidateProfile('正在框选曲线平均行，松开后绘制。');rowView.setPointerCapture(event.pointerId);moveRowDrag(event);});
-rowView.addEventListener('pointermove',moveRowDrag);
-rowView.addEventListener('pointerup',event=>{if(rowProfile.drag?.pointerId!==event.pointerId)return;moveRowDrag(event);rowProfile.drag=null;rowView.releasePointerCapture(event.pointerId);requestProfile();});
+function beginRowDrag(event) {event.preventDefault();rowProfile.drag={pointerId:event.pointerId,start:rowPoint(event),previous:[rowProfile.start,rowProfile.end]};invalidateProfile('正在框选曲线平均行，松开后绘制。');uview.setPointerCapture(event.pointerId);moveRowDrag(event);}
+function finishRowDrag(event) {if(rowProfile.drag?.pointerId!==event.pointerId)return;moveRowDrag(event);rowProfile.drag=null;uview.releasePointerCapture(event.pointerId);requestProfile();}
 function cancelRowDrag(event) {if(rowProfile.drag?.pointerId!==event.pointerId)return;[rowProfile.start,rowProfile.end]=rowProfile.drag.previous;rowProfile.drag=null;requestProfile();}
-rowView.addEventListener('pointercancel',cancelRowDrag);rowView.addEventListener('lostpointercapture',cancelRowDrag);
 uq('rowProfileCanvas').addEventListener('pointermove',event=>{
   if(!rowProfile.result||!rowProfile.bounds)return;
   const {left,right}=rowProfile.bounds,rect=event.currentTarget.getBoundingClientRect(),x=Math.max(0,Math.min(uniform.width-1,Math.round((event.clientX-rect.left-left)/(right-left)*(uniform.width-1))));
